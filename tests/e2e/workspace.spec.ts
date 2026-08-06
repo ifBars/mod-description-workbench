@@ -434,6 +434,18 @@ Blank line above and below this final sentence.`)
     await expect(page.locator('.visual-editor-content .bbc-spoiler-content')).toBeVisible()
   })
 
+  test('focuses Visual without outlining the entire document', async ({ page }) => {
+    await page.getByRole('button', { name: 'Visual', exact: true }).click()
+    const visual = page.locator('.visual-editor-content')
+    await visual.focus()
+
+    expect(await visual.evaluate((element) => ({
+      active: document.activeElement === element,
+      boxShadow: getComputedStyle(element).boxShadow,
+      focusVisible: element.matches(':focus-visible'),
+    }))).toEqual({ active: true, boxShadow: 'none', focusVisible: true })
+  })
+
   test('opens and closes Visual without rewriting Markdown', async ({ page }) => {
     const original = '# Exact Markdown\n\n**Do not rewrite me.**'
     await replaceSource(page, original)

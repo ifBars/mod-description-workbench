@@ -104,6 +104,7 @@ svg { width: 16px; height: 16px; stroke-width: 1.7; }
 .visual-editor { height: 100%; overflow: auto; padding: 24px; background-color: #151515; background-image: linear-gradient(#1d1d1d 1px, transparent 1px), linear-gradient(90deg, #1d1d1d 1px, transparent 1px); background-size: 20px 20px; }
 .visual-editor-canvas { width: min(1240px, 100%); min-height: 100%; margin: 0 auto; padding: 20px clamp(24px, 11.29%, 140px) 40px; background: #29292e; color: #f1f1f1; font-family: "Inter Variable", Inter, sans-serif; font-size: 14px; font-weight: 300; line-height: 1.5; letter-spacing: .3px; text-rendering: optimizeLegibility; }
 .visual-editor-content { min-height: calc(100vh - 230px); outline: none; }
+.visual-editor-content:focus-visible { box-shadow: none; }
 .visual-editor-content p > br.ProseMirror-trailingBreak:last-child:not(:only-child) { display: none; }
 .visual-editor-content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #808088; pointer-events: none; float: left; height: 0; }
 .visual-editor-content > blockquote { position: relative; width: 100%; margin: 10px 0 15px; padding: 25px; border-left: 5.6px solid #d98f40; background: #383838; color: #e1e1e1; font-style: italic; }
