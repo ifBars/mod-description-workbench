@@ -105,7 +105,7 @@ export function WorkspacePage() {
 
       <div className="mobile-modebar">
         <div className="segmented"><button className={state.preferences.layout !== 'preview' ? 'active' : ''} onClick={() => workspaceActions.setLayout('write')}>Write</button><button className={state.preferences.layout === 'preview' ? 'active' : ''} onClick={openMobilePreview}>Preview</button></div>
-        <label className="mobile-mode-select"><span>Editor view</span><select value={editorSurface === 'visual' ? 'visual' : document.mode} onFocus={() => void loadVisualEditor()} onChange={(event) => changeEditorSurface(event.target.value as AuthoringMode | 'visual')}><option value="markdown">Markdown</option><option value="bbcode">BBCode</option><option value="visual">Visual</option></select></label>
+        {state.preferences.layout !== 'preview' && <label className="mobile-mode-select"><span>Editor view</span><select value={editorSurface === 'visual' ? 'visual' : document.mode} onFocus={() => void loadVisualEditor()} onChange={(event) => changeEditorSurface(event.target.value as AuthoringMode | 'visual')}><option value="markdown">Markdown</option><option value="bbcode">BBCode</option><option value="visual">Visual</option></select></label>}
       </div>
 
       <div className="workspace-frame">

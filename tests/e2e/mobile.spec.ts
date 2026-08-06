@@ -6,14 +6,34 @@ test.describe('mobile authoring flow', () => {
   test('uses an explicit write/preview flow without overflow', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('.cm-content')).toBeVisible()
+    await expect(page.locator('.mobile-mode-select')).toBeVisible()
     await expect(page.getByRole('region', { name: 'Nexus preview' })).toBeHidden()
     await page.locator('.mobile-modebar').getByRole('button', { name: 'Preview', exact: true }).click()
     await expect(page.getByRole('region', { name: 'Nexus preview' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Editor' })).toBeHidden()
+    await expect(page.locator('.mobile-mode-select')).toHaveCount(0)
     await expect(page.locator('.preview-header').getByRole('button', { name: 'Mobile' })).toHaveClass(/active/)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.locator('.mobile-modebar').getByRole('button', { name: 'Write', exact: true }).click()
     await expect(page.getByRole('region', { name: 'Editor' })).toBeVisible()
+    await expect(page.locator('.mobile-mode-select')).toBeVisible()
+  })
+
+  test('centers the header export icon and keeps export functional', async ({ page }) => {
+    await page.goto('/')
+    const exportButton = page.locator('.export-control > .button.primary')
+    const insets = await exportButton.evaluate((button) => {
+      const buttonRect = button.getBoundingClientRect()
+      const iconRect = button.querySelector('svg')!.getBoundingClientRect()
+      return {
+        left: iconRect.left - buttonRect.left,
+        right: buttonRect.right - iconRect.right,
+      }
+    })
+    expect(Math.abs(insets.left - insets.right)).toBeLessThanOrEqual(0.25)
+
+    await exportButton.click()
+    await expect(page.getByRole('dialog', { name: 'Export and import' })).toBeVisible()
   })
 
   test('opens tools from the bottom navigation', async ({ page }) => {
