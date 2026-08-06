@@ -242,7 +242,9 @@ Blank line above and below this final sentence.`)
     expectNear(metrics.list?.width, 330.2)
     expectNear(metrics.list?.height, 49)
     expect(metrics.link).toMatchObject({ fontSize: '13px', lineHeight: '19.5px', letterSpacing: '0.3px' })
-    expectNear(metrics.link?.width, 81.6625)
+    // Chromium's platform font rasterization shifts this inline width by just
+    // over one pixel between Windows and GitHub's Linux runner.
+    expectNear(metrics.link?.width, 81.6625, 1.25)
     expectNear(metrics.link?.height, 16)
     expectNear(metrics.center!.top - metrics.left!.bottom, 0)
     expectNear(metrics.right!.top - metrics.center!.bottom, 0)
