@@ -103,7 +103,7 @@ The compact layout keeps writing and previewing separate so neither surface gets
 
 The light theme uses a white editor surface while preserving the measured Nexus preview appearance.
 
-![Light theme in split view](.github/assets/readme/authoring-light.png)
+![Light theme with a Markdown editor and mobile preview in split view](.github/assets/readme/authoring-light.png)
 
 </details>
 
