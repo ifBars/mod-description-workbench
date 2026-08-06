@@ -1,0 +1,28 @@
+node_modules/
+dist/
+coverage/
+.vite/
+*.local
+.env*
+!.env.example
+*.mdw
+*.mdw-theme.json
+*.mdw-components.json
+*.mdw-templates.json
+*.ndw
+*.ndw-*.json
+
+# Local research, visual references, and disposable QA output.
+.agent/
+.artifacts/
+docs/nexus-files/
+.playwright-cli/
+playwright-report/
+test-results/
+
+# Editor and OS noise.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+/docs
