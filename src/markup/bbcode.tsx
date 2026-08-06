@@ -70,23 +70,25 @@ function isNexusBlock(node: BbNode | undefined): node is TagNode {
 }
 
 /**
- * Nexus' BBCode renderer consumes the newline that separates most adjacent
- * block tags. Blank lines remain visible, while alignment blocks preserve an
- * explicitly empty line after them. Normalizing only root boundary nodes keeps
- * newlines inside quotes, lists, and other content intact.
+ * Nexus' BBCode renderer consumes the structural newline after a root block.
+ * Blank lines remain visible, while alignment blocks preserve an explicitly
+ * empty line after them. Normalizing only root boundary nodes keeps newlines
+ * inside quotes, lists, and other content intact.
  */
 function nexusRootNodes(nodes: BbNode[]) {
   return nodes.flatMap((node, index): BbNode[] => {
-    if (node.type !== 'text' || !/^\r?\n(?:\r?\n)*$/.test(node.value)) return [node]
+    if (node.type !== 'text') return [node]
     const previous = nodes[index - 1]
-    const next = nodes[index + 1]
-    if (!isNexusBlock(previous) || !isNexusBlock(next)) return [node]
+    if (!isNexusBlock(previous)) return [node]
 
-    const newlineCount = node.value.match(/\n/g)?.length ?? 0
+    const boundary = node.value.match(/^(?:\r?\n)+/)
+    if (!boundary) return [node]
+    const newlineCount = boundary[0].match(/\n/g)?.length ?? 0
     const preserveCount = newlineCount > 1 && ['left', 'center', 'right'].includes(previous.name)
       ? newlineCount
       : Math.max(0, newlineCount - 1)
-    return preserveCount ? [{ ...node, value: '\n'.repeat(preserveCount) }] : []
+    const value = `${'\n'.repeat(preserveCount)}${node.value.slice(boundary[0].length)}`
+    return value ? [{ ...node, value }] : []
   })
 }
 

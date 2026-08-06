@@ -77,6 +77,25 @@ describe('Nexus BBCode parser', () => {
     expect([...container.querySelectorAll('li')].map((item) => item.textContent)).toEqual(['First', 'Second'])
   })
 
+  it('matches Nexus root-block spacing before headings and paragraphs', () => {
+    const { container } = render(<div>{renderBBCode([
+      '[center]Intro[/center]',
+      '[size=5]Heading[/size]',
+      '',
+      '[list][*]One[/*][/list]',
+      '',
+      '[size=5]Next heading[/size]',
+      '',
+      '[list][*]Two[/*][/list]',
+      '',
+      'Next paragraph',
+    ].join('\n'))}</div>)
+
+    expect(container.innerHTML).toContain('<div style="text-align: center;">Intro</div><span style="font-size: 24px;">Heading</span><br><br><ul>')
+    expect(container.innerHTML).toContain('</ul><br><span style="font-size: 24px;">Next heading</span>')
+    expect(container.innerHTML).toContain('</ul><br>Next paragraph')
+  })
+
   it.each([
     '[img width=640 height=360]https://example.com/a.png[/img]',
     '[img width=640,height=360]https://example.com/a.png[/img]',
