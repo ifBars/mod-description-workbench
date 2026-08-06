@@ -6,7 +6,7 @@ Write your mod description locally, preview how it will look on Nexus Mods, then
 
 Your drafts stay in your browser. There is no account, backend, analytics service, or cloud document storage behind the app.
 
-![Markdown editor and Nexus preview in split view](.github/assets/readme/authoring-split.png)
+![Markdown editor and Nexus mobile preview in split view](.github/assets/readme/authoring-split.png)
 
 > [!NOTE]
 > Mod Description Workbench is an independent tool. It is not affiliated with or endorsed by Nexus Mods, and it never edits or publishes a mod for you.
