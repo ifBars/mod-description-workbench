@@ -40,7 +40,7 @@ test.describe('mobile authoring flow', () => {
     await page.goto('/')
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: /Tools/ }).click()
     await expect(page.getByRole('heading', { name: 'Image library' })).toBeVisible()
-    await expect(page.getByText('Local images stay private')).toBeVisible()
+    await expect(page.getByText(/Remote HTTPS images are Nexus-ready/)).toBeVisible()
   })
 
   test('switches authoring formats from the mobile mode selector', async ({ page }) => {

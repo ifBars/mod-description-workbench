@@ -5,6 +5,15 @@ export type EditorCommand = 'bold' | 'italic' | 'underline' | 'strike' | 'headin
 export interface EditorHandle {
   insert: (content: string) => void
   run: (command: EditorCommand) => void
+  getSelection: () => EditorSelection
+}
+
+export interface EditorSelection { content: string; hasSelection: boolean }
+
+export function selectedEditorContent(value: string, anchor: number, head: number): EditorSelection {
+  const from = Math.min(anchor, head)
+  const to = Math.max(anchor, head)
+  return { content: value.slice(from, to), hasSelection: from !== to }
 }
 
 const sourcePairs: Record<AuthoringMode, Record<Exclude<EditorCommand, 'removeFormatting'>, [string, string, string]>> = {

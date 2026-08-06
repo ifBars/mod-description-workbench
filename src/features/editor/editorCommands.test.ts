@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { applySourceCommand } from './editorCommands'
+import { applySourceCommand, selectedEditorContent } from './editorCommands'
 
 describe('source editor commands', () => {
+  it('captures only the exact selection in either selection direction', () => {
+    expect(selectedEditorContent('first\nsecond\nthird', 6, 12)).toEqual({ content: 'second', hasSelection: true })
+    expect(selectedEditorContent('first\nsecond\nthird', 12, 6)).toEqual({ content: 'second', hasSelection: true })
+    expect(selectedEditorContent('first\nsecond', 5, 5)).toEqual({ content: '', hasSelection: false })
+  })
   it.each([
     ['markdown', 'bold', 'hello', 0, 5, '**hello**'],
     ['bbcode', 'bold', 'hello', 0, 5, '[b]hello[/b]'],

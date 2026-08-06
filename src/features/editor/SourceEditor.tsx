@@ -8,7 +8,7 @@ import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutt
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { AuthoringMode } from '../../domain/types'
 import { BB_CODE_COMPLETIONS } from '../../markup/bbcode'
-import { applySourceCommand, type EditorHandle } from './editorCommands'
+import { applySourceCommand, selectedEditorContent, type EditorHandle } from './editorCommands'
 
 interface SourceEditorProps {
   content: string
@@ -118,6 +118,12 @@ export const SourceEditor = forwardRef<EditorHandle, SourceEditorProps>(function
   }, [content])
 
   useImperativeHandle(ref, () => ({
+    getSelection() {
+      const editor = view.current
+      if (!editor) return { content: '', hasSelection: false }
+      const { anchor, head } = editor.state.selection.main
+      return selectedEditorContent(editor.state.doc.toString(), anchor, head)
+    },
     insert(inserted) {
       const editor = view.current
       if (!editor) return

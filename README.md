@@ -20,7 +20,7 @@ Mod Description Workbench keeps the working copy on your device and makes the fi
 ## How to use it
 
 1. Create a document and choose Markdown, BBCode, or Visual.
-2. Write in split view, or switch to Preview only for the clearest desktop comparison.
+2. Write with a readable desktop or mobile preview beside the editor, or switch to Preview only for a full-width comparison.
 3. Check the desktop and mobile previews.
 4. Open **Export** and copy or download the Nexus BBCode.
 5. Paste it into the Nexus description editor and review it there before saving.

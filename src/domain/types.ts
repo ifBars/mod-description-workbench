@@ -2,7 +2,7 @@ export type AuthoringMode = 'markdown' | 'bbcode'
 export type WorkspaceLayout = 'split' | 'write' | 'preview'
 export type PreviewDevice = 'desktop' | 'mobile'
 export type ThemeMode = 'system' | 'dark' | 'light'
-export type AuthoringToolTab = 'images' | 'spoiler' | 'components' | 'templates' | 'color'
+export type AuthoringToolTab = 'sections' | 'images' | 'spoiler' | 'components' | 'templates' | 'color'
 
 export interface DescriptionDocument {
   id: string
@@ -92,6 +92,10 @@ export interface WorkspacePreferences {
   editorFontSize: number
   wordWrap: boolean
   reducedMotion: boolean
+  autosaveDelayMs: number
+  recoveryEnabled: boolean
+  checkpointDelayMs: number
+  checkpointRetention: number
 }
 
 export interface WorkspaceSnapshot {

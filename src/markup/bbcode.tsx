@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { YouTubeEmbed } from './YouTubeEmbed'
 
 interface TagNode {
   type: 'tag'
@@ -197,7 +198,7 @@ function renderNode(node: BbNode, key: string, assetUrls: Record<string, string>
     }
     case 'youtube': {
       const id = textContent(node.children).replace(/[^\w-]/g, '')
-      return id ? <div className="embed-placeholder" key={key}>YouTube video · {id}</div> : null
+      return id ? <YouTubeEmbed id={id} key={key} /> : null
     }
     case 'video': case 'soundcloud': return <div className="embed-placeholder" key={key}>{node.name} embed · {textContent(node.children)}</div>
     case 'twitter': return <a key={key} href={`https://twitter.com/${encodeURIComponent(textContent(node.children).replace(/^@/, ''))}`} target="_blank" rel="noreferrer">@{textContent(node.children).replace(/^@/, '')}</a>

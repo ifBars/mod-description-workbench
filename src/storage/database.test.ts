@@ -20,6 +20,13 @@ describe('IndexedDB persistence', () => {
     expect((await listCheckpoints('retention-test')).length).toBeLessThanOrEqual(50)
   })
 
+  it('uses the configured recovery retention limit', async () => {
+    for (let index = 0; index < 8; index += 1) {
+      await saveCheckpoint({ id: `custom-retained-${index}`, documentId: 'custom-retention', content: String(index), mode: 'markdown', createdAt: 30_000 + index }, 5)
+    }
+    expect(await listCheckpoints('custom-retention')).toHaveLength(5)
+  })
+
   it('clears workspace, checkpoints, and image blobs together', async () => {
     await saveWorkspace(createDefaultSnapshot())
     await saveCheckpoint({ id: 'clear-checkpoint', documentId: 'clear-document', content: 'Draft', mode: 'markdown', createdAt: 20_000 })

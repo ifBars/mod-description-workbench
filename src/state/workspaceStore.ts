@@ -44,6 +44,10 @@ const snapshotSchema = z.object({
     editorFontSize: z.number(),
     wordWrap: z.boolean(),
     reducedMotion: z.boolean(),
+    autosaveDelayMs: z.number().min(100).max(5000).default(250),
+    recoveryEnabled: z.boolean().default(true),
+    checkpointDelayMs: z.number().min(1000).max(60000).default(1500),
+    checkpointRetention: z.number().int().min(5).max(100).default(50),
   }),
   customThemes: z.array(z.object({
     id: z.string(),
@@ -108,17 +112,19 @@ function scheduleSave(checkpoint = false) {
       state = { ...state, saveState: 'error' }
       emit()
     })
-  }, 250)
+  }, state.preferences.autosaveDelayMs)
 
-  if (checkpoint) {
+  if (!state.preferences.recoveryEnabled) {
+    clearTimeout(checkpointTimer)
+  } else if (checkpoint) {
     clearTimeout(checkpointTimer)
     checkpointTimer = setTimeout(() => {
       const document = getActiveDocument()
       void saveCheckpoint({
         id: crypto.randomUUID(), documentId: document.id, content: document.content,
         mode: document.mode, createdAt: Date.now(),
-      })
-    }, 1500)
+      }, state.preferences.checkpointRetention)
+    }, state.preferences.checkpointDelayMs)
   }
 }
 
@@ -256,7 +262,10 @@ export const workspaceActions = {
   setLayout(layout: WorkspaceLayout) { update((current) => ({ ...current, preferences: { ...current.preferences, layout } })) },
   setPreviewDevice(previewDevice: PreviewDevice) { update((current) => ({ ...current, preferences: { ...current.preferences, previewDevice } })) },
   setTheme(theme: ThemeMode) { update((current) => ({ ...current, preferences: { ...current.preferences, theme, customThemeId: null } })) },
-  updatePreferences(preferences: Partial<WorkspacePreferences>) { update((current) => ({ ...current, preferences: { ...current.preferences, ...preferences } })) },
+  updatePreferences(preferences: Partial<WorkspacePreferences>) {
+    if ('recoveryEnabled' in preferences || 'checkpointDelayMs' in preferences) clearTimeout(checkpointTimer)
+    update((current) => ({ ...current, preferences: { ...current.preferences, ...preferences } }))
+  },
   setScreen(screen: Screen) { update((current) => ({ ...current, screen }), false) },
   toggleTools(open?: boolean) { update((current) => ({ ...current, toolsOpen: open ?? !current.toolsOpen }), false) },
   openTools(toolTab: AuthoringToolTab = 'images') { update((current) => ({ ...current, toolsOpen: true, toolTab }), false) },

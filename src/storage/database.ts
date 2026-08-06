@@ -37,11 +37,11 @@ export async function saveWorkspace(snapshot: WorkspaceSnapshot) {
   await (await database).put('workspace', snapshot, 'current')
 }
 
-export async function saveCheckpoint(checkpoint: RecoveryCheckpoint) {
+export async function saveCheckpoint(checkpoint: RecoveryCheckpoint, retention = 50) {
   const db = await database
   await db.put('checkpoints', checkpoint)
   const all = await db.getAllFromIndex('checkpoints', 'by-created')
-  const stale = all.slice(0, Math.max(0, all.length - 50))
+  const stale = all.slice(0, Math.max(0, all.length - retention))
   await Promise.all(stale.map((entry) => db.delete('checkpoints', entry.id)))
 }
 

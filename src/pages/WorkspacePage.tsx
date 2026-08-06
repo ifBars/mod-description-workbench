@@ -4,7 +4,7 @@ import type { AuthoringMode, AuthoringToolTab } from '../domain/types'
 import { themeVariables } from '../domain/themes'
 import { DocumentsDrawer } from '../features/documents/DocumentsDrawer'
 import { FormattingToolbar } from '../features/editor/FormattingToolbar'
-import type { EditorHandle } from '../features/editor/editorCommands'
+import type { EditorHandle, EditorSelection } from '../features/editor/editorCommands'
 import { NexusPreview } from '../features/preview/NexusPreview'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { ToolsDrawer } from '../features/tools/ToolsDrawer'
@@ -29,6 +29,7 @@ export function WorkspacePage() {
   const [exportStatus, setExportStatus] = useState('')
   const [editorSurface, setEditorSurface] = useState<'source' | 'visual'>('source')
   const [visualReady, setVisualReady] = useState(false)
+  const [toolSelection, setToolSelection] = useState<EditorSelection>({ content: '', hasSelection: false })
   const fileInput = useRef<HTMLInputElement>(null)
   const sourceEditor = useRef<EditorHandle>(null)
   const visualEditor = useRef<EditorHandle>(null)
@@ -49,7 +50,11 @@ export function WorkspacePage() {
   const insert = (snippet: string) => activeEditor.current?.insert(snippet)
   const rememberOverlayTrigger = () => { overlayTrigger.current = globalThis.document.activeElement as HTMLElement | null }
   const restoreOverlayTrigger = () => requestAnimationFrame(() => (overlayTrigger.current ?? globalThis.document.querySelector<HTMLElement>('.utility-rail [title="Tools"], .mobile-bottom-nav button:nth-child(3)'))?.focus())
-  const openTools = (tab: AuthoringToolTab = 'images') => { rememberOverlayTrigger(); workspaceActions.openTools(tab) }
+  const openTools = (tab: AuthoringToolTab = 'images') => {
+    rememberOverlayTrigger()
+    setToolSelection(activeEditor.current?.getSelection() ?? { content: '', hasSelection: false })
+    workspaceActions.openTools(tab)
+  }
   const closeTools = () => { workspaceActions.toggleTools(false); restoreOverlayTrigger() }
   const openDocuments = () => { rememberOverlayTrigger(); workspaceActions.toggleDocuments(true) }
   const closeDocuments = () => { workspaceActions.toggleDocuments(false); restoreOverlayTrigger() }
@@ -77,7 +82,6 @@ export function WorkspacePage() {
         <button className="brand" aria-label="Mod Description Workbench"><span className="brand-mark">{'{}'}</span></button>
         <input className="document-title" value={document.title} onChange={(event) => workspaceActions.updateTitle(event.target.value)} aria-label="Document title" />
         <div className="header-actions">
-          {state.preferences.layout === 'split' && state.preferences.previewDevice === 'desktop' && <button className="preview-recommendation mobile-hidden" aria-label="Use recommended Preview only layout" onClick={() => workspaceActions.setLayout('preview')}><span>Best desktop view: </span><strong>Preview only</strong></button>}
           <div className="layout-controls header-layout-controls mobile-hidden" role="group" aria-label="Workspace layout">
             <button className={state.preferences.layout === 'write' ? 'active icon-button' : 'icon-button'} onClick={() => workspaceActions.setLayout('write')} title="Editor only" aria-label="Editor only"><PanelLeft /></button>
             <button className={state.preferences.layout === 'split' ? 'active icon-button' : 'icon-button'} onClick={() => workspaceActions.setLayout('split')} title="Split view" aria-label="Split view"><Columns2 /></button>
@@ -136,7 +140,7 @@ export function WorkspacePage() {
             </div>
           </section>
           <SplitDivider ratio={state.preferences.splitRatio} onChange={(splitRatio) => workspaceActions.updatePreferences({ splitRatio })} />
-          <NexusPreview content={document.content} mode={document.mode} nexusContent={document.nexusContent} device={state.preferences.previewDevice} zoom={state.preferences.previewZoom} assetUrls={state.assetObjectUrls} onDeviceChange={workspaceActions.setPreviewDevice} />
+          <NexusPreview content={document.content} mode={document.mode} nexusContent={document.nexusContent} device={state.preferences.previewDevice} zoom={state.preferences.previewZoom} fluidDesktop={state.preferences.layout === 'split'} assetUrls={state.assetObjectUrls} onDeviceChange={workspaceActions.setPreviewDevice} />
         </main>
       </div>
 
@@ -145,10 +149,10 @@ export function WorkspacePage() {
 
       {(state.documentsOpen || state.toolsOpen) && <button className="drawer-backdrop" aria-label="Close panel" onClick={() => { if (state.documentsOpen) closeDocuments(); if (state.toolsOpen) closeTools() }} />}
       {state.documentsOpen && <DocumentsDrawer documents={state.documents} activeId={state.activeDocumentId} open onClose={closeDocuments} onCreate={workspaceActions.createDocument} onSelect={(id) => { workspaceActions.selectDocument(id); closeDocuments() }} onDelete={workspaceActions.deleteDocument} onRestore={(documentId, checkpoint) => { workspaceActions.selectDocument(documentId); workspaceActions.restoreContent(checkpoint.content, checkpoint.mode); closeDocuments() }} />}
-      {state.toolsOpen && <ToolsDrawer key={state.toolTab} open mode={editorSurface === 'visual' ? 'bbcode' : document.mode} documentContent={editorSurface === 'visual' ? (document.nexusContent ?? exportDocumentContent(document, 'bbcode')) : document.content} documentId={document.id} initialTab={state.toolTab} onClose={closeTools} onInsert={(snippet) => { insert(snippet); closeTools() }} />}
+      {state.toolsOpen && <ToolsDrawer key={state.toolTab} open mode={editorSurface === 'visual' ? 'bbcode' : document.mode} documentContent={editorSurface === 'visual' ? (document.nexusContent ?? exportDocumentContent(document, 'bbcode')) : document.content} documentId={document.id} selection={toolSelection} initialTab={state.toolTab} onClose={closeTools} onInsert={(snippet) => { insert(snippet); closeTools() }} />}
       <input ref={fileInput} hidden type="file" accept=".mdw,application/json,.json" onChange={(event) => void importWorkspace(event.target.files?.[0])} />
     </div>
-    {state.screen === 'settings' && <div data-theme={theme} style={themeVariables(customTheme)}><SettingsPage preferences={state.preferences} /></div>}
+    {state.screen === 'settings' && <div data-theme={theme} style={themeVariables(customTheme)}><SettingsPage /></div>}
     </>
   )
 }

@@ -28,6 +28,10 @@ export const DEFAULT_PREFERENCES: WorkspacePreferences = {
   editorFontSize: 14,
   wordWrap: true,
   reducedMotion: false,
+  autosaveDelayMs: 250,
+  recoveryEnabled: true,
+  checkpointDelayMs: 1500,
+  checkpointRetention: 50,
 }
 
 export function createDocument(title = 'Untitled description'): DescriptionDocument {

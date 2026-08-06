@@ -32,6 +32,17 @@ export function componentUpdate(definition: ComponentDefinition, instance: Compo
   return renderComponent(definition, instance.values, instance.mode)
 }
 
+export function componentVariableIssues(content: string, variables: ComponentDefinition['variables'] = []) {
+  const names = new Set((variables ?? []).map((variable) => variable.name))
+  const referenced = new Set<string>()
+  for (const match of content.matchAll(/{{(?:#|\/)?([a-zA-Z_][\w-]*)}}/g)) referenced.add(match[1]!)
+  const issues = [...referenced].filter((name) => !names.has(name)).map((name) => `{{${name}}} has no matching variable.`)
+  for (const variable of variables ?? []) {
+    if (!referenced.has(variable.name)) issues.push(`${variable.name} is not used in the component source.`)
+  }
+  return issues
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

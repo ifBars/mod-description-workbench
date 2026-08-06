@@ -6,6 +6,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { DOMSerializer } from '@tiptap/pm/model'
 import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react'
 import { bbcodeToVisualHTML } from '../../markup/bbcode'
 import { visualHTMLToBBCode } from '../../markup/convert'
@@ -100,6 +101,14 @@ export const VisualEditor = forwardRef<EditorHandle, VisualEditorProps>(function
   }, [bbcode, editor, visualHTML])
 
   useImperativeHandle(ref, () => ({
+    getSelection() {
+      if (!editor) return { content: '', hasSelection: false }
+      const { from, to } = editor.state.selection
+      if (from === to) return { content: '', hasSelection: false }
+      const wrapper = document.createElement('div')
+      wrapper.appendChild(DOMSerializer.fromSchema(editor.schema).serializeFragment(editor.state.doc.slice(from, to).content))
+      return { content: visualHTMLToBBCode(wrapper.innerHTML), hasSelection: true }
+    },
     insert(value) { editor?.chain().focus().insertContent(bbcodeToVisualHTML(value, assetUrls)).run() },
     run(command) {
       if (!editor) return

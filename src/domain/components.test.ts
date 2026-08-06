@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ComponentDefinition } from './types'
-import { defaultComponentValues, renderComponent, validateComponentValue } from './components'
+import { componentVariableIssues, defaultComponentValues, renderComponent, validateComponentValue } from './components'
 
 const definition: ComponentDefinition = {
   id: 'component', name: 'Release', mode: 'bbcode', createdAt: 1,
@@ -29,5 +29,10 @@ describe('linked reusable components', () => {
     expect(validateComponentValue('url', 'javascript:alert(1)')).toBe(false)
     expect(validateComponentValue('image', 'asset://safe')).toBe(true)
     expect(validateComponentValue('choice', 'Nope', ['Stable'])).toBe(false)
+  })
+
+  it('explains undefined and unused variable tokens', () => {
+    expect(componentVariableIssues('[b]{{missing}}[/b]', definition.variables)).toContain('{{missing}} has no matching variable.')
+    expect(componentVariableIssues('[b]{{title}}[/b]', definition.variables)).toEqual(expect.arrayContaining(['accent is not used in the component source.', 'showLink is not used in the component source.']))
   })
 })

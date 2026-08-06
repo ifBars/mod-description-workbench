@@ -25,7 +25,7 @@ test.describe('WCAG smoke coverage', () => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Settings', exact: true }).last().click()
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
-    const categories = ['Appearance', 'Editor', 'Preview', 'Autosave & recovery', 'Images', 'Templates & components', 'Accessibility', 'Keyboard', 'Privacy & data', 'About']
+    const categories = ['Appearance', 'Editor', 'Preview', 'Autosave & recovery', 'Images', 'Templates & components', 'Accessibility', 'Keyboard', 'Privacy & data']
     for (const category of categories) {
       await page.getByRole('button', { name: category, exact: true }).click()
       await expect(page.getByRole('heading', { name: category, exact: true })).toBeVisible()

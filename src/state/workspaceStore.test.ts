@@ -55,9 +55,30 @@ describe.sequential('workspace state transitions', () => {
     ['font size', { editorFontSize: 17 }],
     ['word wrap', { wordWrap: false }],
     ['reduced motion', { reducedMotion: true }],
+    ['autosave delay', { autosaveDelayMs: 1000 }],
+    ['recovery enabled', { recoveryEnabled: false }],
+    ['checkpoint delay', { checkpointDelayMs: 5000 }],
+    ['checkpoint retention', { checkpointRetention: 25 }],
   ])('persists %s preferences', (_name, patch) => {
     workspaceActions.updatePreferences(patch)
     expect(getWorkspaceSnapshot().preferences).toMatchObject(patch)
+  })
+
+  it('fills recovery preferences when loading an older version-one workspace', () => {
+    const snapshot = createDefaultSnapshot()
+    const olderPreferences = {
+      theme: snapshot.preferences.theme,
+      customThemeId: snapshot.preferences.customThemeId,
+      layout: snapshot.preferences.layout,
+      splitRatio: snapshot.preferences.splitRatio,
+      previewDevice: snapshot.preferences.previewDevice,
+      previewZoom: snapshot.preferences.previewZoom,
+      editorFontSize: snapshot.preferences.editorFontSize,
+      wordWrap: snapshot.preferences.wordWrap,
+      reducedMotion: snapshot.preferences.reducedMotion,
+    }
+    workspaceActions.replaceSnapshot({ ...snapshot, preferences: olderPreferences } as typeof snapshot)
+    expect(getWorkspaceSnapshot().preferences).toMatchObject({ autosaveDelayMs: 250, recoveryEnabled: true, checkpointDelayMs: 1500, checkpointRetention: 50 })
   })
 
   it('creates and selects a custom theme', () => {

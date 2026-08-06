@@ -1,19 +1,22 @@
-import { Boxes, Download, FileStack, Image, Link2, Palette, Plus, RefreshCw, Save, Trash2, Unlink, Upload, View, X } from 'lucide-react'
+import { Boxes, Download, FileStack, Image, Palette, PanelsTopLeft, Plus, RefreshCw, Save, Trash2, Upload, View, X } from 'lucide-react'
 import { useRef, useState } from 'react'
-import type { AuthoringMode, AuthoringToolTab, ComponentDefinition, ComponentVariable, ComponentVariableType } from '../../domain/types'
+import type { AuthoringMode, AuthoringToolTab } from '../../domain/types'
+import type { EditorSelection } from '../editor/editorCommands'
 import { convertContent } from '../../markup/convert'
 import { imageUsageCount, validateLocalImage } from '../../domain/images'
 import { useWorkspaceStore, workspaceActions } from '../../state/workspaceStore'
 import { downloadLibrary, readLibraryFile, type LibraryKind } from '../../storage/library'
-import { componentUpdate, defaultComponentValues, renderComponent } from '../../domain/components'
 import { trapFocus } from '../../lib/focusTrap'
 import { NEXUS_PUBLIC_FIDELITY_V2 } from '../../fixtures/nexusPublicFidelityV2'
+import { SectionBuilderPanel } from './SectionBuilderPanel'
+import { ComponentsPanel } from './ComponentsPanel'
 
 interface ToolsDrawerProps {
   open: boolean
   mode: AuthoringMode
   documentContent: string
   documentId: string
+  selection: EditorSelection
   initialTab?: AuthoringToolTab
   onClose: () => void
   onInsert: (snippet: string) => void
@@ -30,14 +33,7 @@ function imageSnippet(mode: AuthoringMode, source: string, alt: string) {
   return `![${alt}](${source})`
 }
 
-function ComponentValueField({ variable, value, onChange }: { variable: ComponentVariable; value: string | boolean; onChange: (value: string | boolean) => void }) {
-  if (variable.type === 'boolean') return <label className="switch-row"><span><strong>{variable.name}</strong><small>Include the matching boolean section</small></span><input type="checkbox" checked={value === true} onChange={(event) => onChange(event.target.checked)} /></label>
-  if (variable.type === 'choice') return <label>{variable.name}<select value={String(value)} onChange={(event) => onChange(event.target.value)}>{(variable.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
-  if (variable.type === 'color') return <label>{variable.name}<span className="token-input"><input type="color" value={String(value)} onChange={(event) => onChange(event.target.value)} /><input value={String(value)} onChange={(event) => onChange(event.target.value)} /></span></label>
-  return <label>{variable.name}<input type={variable.type === 'url' || variable.type === 'image' ? 'url' : 'text'} value={String(value)} onChange={(event) => onChange(event.target.value)} /></label>
-}
-
-export function ToolsDrawer({ open, mode, documentContent, documentId, initialTab = 'images', onClose, onInsert }: ToolsDrawerProps) {
+export function ToolsDrawer({ open, mode, documentContent, documentId, selection, initialTab = 'images', onClose, onInsert }: ToolsDrawerProps) {
   const state = useWorkspaceStore()
   const [tab, setTab] = useState<AuthoringToolTab>(initialTab)
   const [imageUrl, setImageUrl] = useState('')
@@ -52,20 +48,10 @@ export function ToolsDrawer({ open, mode, documentContent, documentId, initialTa
   const [replacementUrl, setReplacementUrl] = useState('')
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [cleanupPending, setCleanupPending] = useState(false)
-  const [componentVariables, setComponentVariables] = useState<ComponentVariable[]>([])
-  const [variableName, setVariableName] = useState('version')
-  const [variableType, setVariableType] = useState<ComponentVariableType>('text')
-  const [variableDefault, setVariableDefault] = useState('1.0.0')
-  const [variableOptions, setVariableOptions] = useState('Stable, Beta')
-  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null)
-  const [componentValues, setComponentValues] = useState<Record<string, string | boolean>>({})
   const localImageInput = useRef<HTMLInputElement>(null)
   const replacementImageInput = useRef<HTMLInputElement>(null)
-  const componentInput = useRef<HTMLInputElement>(null)
   const templateInput = useRef<HTMLInputElement>(null)
   const unusedImageCount = state.imageAssets.filter((asset) => imageUsageCount(state.documents, asset) === 0).length
-  const selectedComponent = state.components.find((component) => component.id === selectedComponentId)
-  const documentInstances = state.componentInstances.filter((instance) => instance.documentId === documentId)
 
   const addRemoteImage = () => {
     if (!/^https:\/\//i.test(imageUrl)) return
@@ -121,53 +107,29 @@ export function ToolsDrawer({ open, mode, documentContent, documentId, initialTa
       setLibraryNotice(`Imported ${blocks.length} ${kind}.`)
     } catch (error) { setLibraryNotice(error instanceof Error ? error.message : `Could not import ${kind}.`) }
   }
-  const addVariable = () => {
-    const name = variableName.trim().replace(/\s+/g, '_')
-    if (!/^[a-zA-Z_][\w-]*$/.test(name) || componentVariables.some((variable) => variable.name === name)) {
-      setLibraryNotice('Variable names must be unique and use letters, numbers, underscores, or hyphens.')
-      return
-    }
-    const options = variableType === 'choice' ? variableOptions.split(',').map((option) => option.trim()).filter(Boolean) : undefined
-    const defaultValue = variableType === 'boolean' ? variableDefault === 'true' : variableType === 'choice' ? options?.[0] ?? '' : variableDefault
-    setComponentVariables((variables) => [...variables, { id: crypto.randomUUID(), name, type: variableType, defaultValue, ...(options ? { options } : {}) }])
-    setLibraryNotice(`Added {{${name}}}. Place that token in the source before saving.`)
-  }
-  const saveComponent = () => {
-    workspaceActions.addComponent({ name: blockName, mode, content: documentContent, variables: componentVariables })
-    setComponentVariables([])
-    setLibraryNotice('Component definition saved.')
-  }
-  const insertLinkedComponent = (definition: ComponentDefinition, values: Record<string, string | boolean>) => {
-    const renderedContent = renderComponent(definition, values, mode)
-    insertBlock(renderedContent)
-    workspaceActions.linkComponentInstance({ definitionId: definition.id, documentId, values, mode, renderedContent })
-  }
-  const chooseComponent = (definition: ComponentDefinition) => {
-    const values = defaultComponentValues(definition)
-    if ((definition.variables?.length ?? 0) === 0) { insertLinkedComponent(definition, values); return }
-    setSelectedComponentId(definition.id)
-    setComponentValues(values)
-  }
   const insertBlock = (snippet: string) => onInsert(`\n\n${snippet}\n\n`)
-  const insertSpoiler = () => insertBlock(mode === 'bbcode'
+  const spoilerSource = mode === 'bbcode'
     ? `[spoiler]${spoilerContent}[/spoiler]`
-    : `:::spoiler ${spoilerTitle}\n${spoilerContent}\n:::`)
-  const insertColor = () => onInsert(`[color=${color}]coloured text[/color]`)
+    : `:::spoiler ${spoilerTitle}\n${spoilerContent}\n:::`
+  const insertSpoiler = () => insertBlock(spoilerSource)
+  const insertColor = () => onInsert(`[color=${color}]${selection.hasSelection ? selection.content : 'coloured text'}[/color]`)
+  const insertionTarget = selection.hasSelection ? `replaces the ${selection.content.length}-character editor selection` : 'inserts at the current editor cursor'
 
   return (
     <aside className={`side-drawer tools-drawer ${open ? 'open' : ''}`} aria-label="Authoring tools" aria-hidden={!open} onKeyDown={(event) => trapFocus(event, onClose)}>
       <header className="drawer-header"><div><span className="eyebrow">Authoring</span><h2>Tools</h2></div><button className="icon-button" autoFocus onClick={onClose} aria-label="Close tools"><X /></button></header>
-      <nav className="tool-tabs" aria-label="Tool categories">{([['images', Image], ['spoiler', View], ['components', Boxes], ['templates', FileStack], ['color', Palette]] as const).map(([name, Icon]) => <button key={name} className={tab === name ? 'active' : ''} onClick={() => setTab(name)}><Icon />{name}</button>)}</nav>
+      <nav className="tool-tabs" aria-label="Tool categories">{([['sections', PanelsTopLeft], ['images', Image], ['spoiler', View], ['components', Boxes], ['templates', FileStack], ['color', Palette]] as const).map(([name, Icon]) => <button key={name} className={tab === name ? 'active' : ''} onClick={() => setTab(name)}><Icon />{name}</button>)}</nav>
       <div className="tool-body">
+        {tab === 'sections' && <><SectionBuilderPanel mode={mode} onInsert={insertBlock} /><p className="tool-outcome">Insert {insertionTarget}. It changes this document only; save it as a Component if you want to reuse it.</p></>}
         {tab === 'images' && <section>
           <h3>Image library</h3>
-          <p className="section-copy">Remote images export directly. Local images stay private and previewable until you replace them with a public Nexus-compatible URL.</p>
+          <p className="section-copy">Add an image to the local library and insert it into this document. Remote HTTPS images are Nexus-ready; local files preview here but must be replaced with a public URL before export.</p>
           {imageNotice && <p className="inline-notice" role="status">{imageNotice}</p>}
           <label>Image URL<input value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://example.com/image.png" /></label>
           <label>Alt text<input value={imageAlt} onChange={(event) => setImageAlt(event.target.value)} placeholder="What the image shows" /></label>
           <div className="button-row">
-            <button className="button primary" disabled={!/^https:\/\//i.test(imageUrl)} onClick={addRemoteImage}><Plus />Add URL</button>
-            <button className="button secondary" onClick={() => localImageInput.current?.click()}><Upload />Add local</button>
+            <button className="button primary" disabled={!/^https:\/\//i.test(imageUrl)} onClick={addRemoteImage}><Plus />Save URL and insert</button>
+            <button className="button secondary" onClick={() => localImageInput.current?.click()}><Upload />Save local file and insert</button>
             <input ref={localImageInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={(event) => void addLocalImage(event.target.files?.[0])} />
           </div>
           {state.imageAssets.length > 0 && <div className="asset-library-actions">
@@ -180,7 +142,7 @@ export function ToolsDrawer({ open, mode, documentContent, documentId, initialTa
             return <div className="asset-entry" key={asset.id}>
               <div className="asset-row">
                 {asset.kind === 'local' && state.assetObjectUrls[asset.id] ? <img src={state.assetObjectUrls[asset.id]} alt="" /> : <Image />}
-                <button onClick={() => onInsert(imageSnippet(mode, asset.url ?? `asset://${asset.id}`, asset.name))}><strong>{asset.name}</strong><small>{asset.kind === 'local' ? `${Math.ceil(asset.size / 1024)} KB · local only${dimensions}` : `Remote URL${dimensions}`} · used {usage}×</small></button>
+                <button aria-label={`Insert image ${asset.name}`} onClick={() => onInsert(imageSnippet(mode, asset.url ?? `asset://${asset.id}`, asset.name))}><strong>{asset.name}</strong><small>{asset.kind === 'local' ? `${Math.ceil(asset.size / 1024)} KB · local only${dimensions}` : `Remote URL${dimensions}`} · used {usage}× · click to insert</small></button>
                 <div className="asset-actions">
                   <button className="icon-button subtle" onClick={() => { setReplaceTargetId(asset.id); setReplacementUrl(asset.url ?? '') }} aria-label={`Replace ${asset.name}`}><RefreshCw /></button>
                   <button className={`icon-button subtle ${pendingDeleteId === asset.id ? 'danger' : ''}`} onClick={() => void removeImage(asset.id)} aria-label={`${pendingDeleteId === asset.id ? 'Confirm delete' : 'Delete'} ${asset.name}`}><Trash2 /></button>
@@ -192,43 +154,18 @@ export function ToolsDrawer({ open, mode, documentContent, documentId, initialTa
             </div>
           })}</div>
           <input ref={replacementImageInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={(event) => void replaceImage(event.target.files?.[0])} />
+          <p className="tool-outcome">Inserting an image {insertionTarget} and closes Tools. Replacing a library image updates every use of that library entry.</p>
         </section>}
-        {tab === 'spoiler' && <section><h3>Spoiler builder</h3><label>Editor label<input value={spoilerTitle} onChange={(event) => setSpoilerTitle(event.target.value)} /></label><label>Hidden content<textarea rows={7} value={spoilerContent} onChange={(event) => setSpoilerContent(event.target.value)} /></label><button className="button primary" onClick={insertSpoiler}><Plus />Insert spoiler</button><p className="section-copy">Nexus exports `[spoiler]...[/spoiler]`; a custom label is project-only because the captured Nexus renderer uses a fixed label.</p></section>}
-        {tab === 'components' && <section>
-          <h3>Reusable components</h3><p className="section-copy">Save source with typed <code>{'{{variables}}'}</code>, insert linked instances, and review definition updates before applying them.</p>
-          {libraryNotice && <p className="inline-notice" role="status">{libraryNotice}</p>}
-          <div className="button-row"><button className="button secondary" disabled={state.components.length === 0} onClick={() => downloadLibrary('components', state.components)}><Download />Export library</button><button className="button secondary" onClick={() => componentInput.current?.click()}><Upload />Import library</button><input ref={componentInput} hidden type="file" accept="application/json,.json" onChange={(event) => void importLibrary('components', event.target.files?.[0])} /></div>
-          <label>Component name<input value={blockName} onChange={(event) => setBlockName(event.target.value)} /></label>
-          <div className="component-variable-builder">
-            <div className="section-title-row"><div><h4>Variables</h4><p className="section-copy">Add a variable, then use its token in the source.</p></div><span>{componentVariables.length}</span></div>
-            <label>Variable name<input value={variableName} onChange={(event) => setVariableName(event.target.value)} /></label>
-            <label>Type<select value={variableType} onChange={(event) => setVariableType(event.target.value as ComponentVariableType)}><option value="text">Text</option><option value="color">Colour</option><option value="url">URL</option><option value="image">Image</option><option value="choice">Choice</option><option value="boolean">Boolean</option></select></label>
-            {variableType === 'choice' && <label>Choices<input value={variableOptions} onChange={(event) => setVariableOptions(event.target.value)} placeholder="Stable, Beta" /></label>}
-            {variableType === 'boolean' ? <label>Default<select value={variableDefault} onChange={(event) => setVariableDefault(event.target.value)}><option value="true">Enabled</option><option value="false">Disabled</option></select></label> : <label>Default value<input value={variableDefault} onChange={(event) => setVariableDefault(event.target.value)} /></label>}
-            <button className="button quiet" onClick={addVariable}><Plus />Add variable</button>
-            {componentVariables.map((variable) => <div className="variable-chip" key={variable.id}><code>{`{{${variable.name}}}`}</code><span>{variable.type}</span><button className="icon-button subtle" aria-label={`Remove variable ${variable.name}`} onClick={() => setComponentVariables((variables) => variables.filter((candidate) => candidate.id !== variable.id))}><X /></button></div>)}
-          </div>
-          <button className="button secondary" onClick={saveComponent}><Save />Save current source</button>
-          <button className="library-item" onClick={() => insertBlock(mode === 'bbcode' ? '[quote][b]Compatibility[/b]\nWorks with the current supported game version.[/quote]' : '> **Compatibility**\n> Works with the current supported game version.')}><Boxes /><span><strong>Compatibility callout</strong><small>Quote-based and Nexus-safe</small></span><Plus /></button>
-          {state.components.map((block) => <div className="library-row component-library-row" key={block.id}><button className="library-item" onClick={() => chooseComponent(block)}><Boxes /><span><strong>{block.name}</strong><small>{block.variables?.length ?? 0} variables · saved as {block.mode}</small></span>{(block.variables?.length ?? 0) > 0 ? <Link2 /> : <Plus />}</button><button className="icon-button subtle" aria-label={`Edit component ${block.name}`} onClick={() => { setSelectedComponentId(block.id); setComponentValues(defaultComponentValues(block)) }}><RefreshCw /></button><button className="icon-button subtle" aria-label={`Delete component ${block.name}`} onClick={() => workspaceActions.deleteComponent(block.id)}><Trash2 /></button></div>)}
-          {selectedComponent && <div className="component-config"><div className="section-title-row"><div><h4>Configure {selectedComponent.name}</h4><p className="section-copy">This inserts materialized Nexus-safe source while retaining a local link.</p></div><button className="icon-button" aria-label="Close component configuration" onClick={() => setSelectedComponentId(null)}><X /></button></div><label>Definition source<textarea rows={5} value={selectedComponent.content} onChange={(event) => workspaceActions.updateComponent(selectedComponent.id, { content: event.target.value })} /></label>{(selectedComponent.variables ?? []).map((variable) => <ComponentValueField key={variable.id} variable={variable} value={componentValues[variable.name] ?? variable.defaultValue} onChange={(value) => setComponentValues((values) => ({ ...values, [variable.name]: value }))} />)}<button className="button primary" onClick={() => insertLinkedComponent(selectedComponent, componentValues)}><Link2 />Insert linked instance</button></div>}
-          {documentInstances.length > 0 && <div className="component-instances"><h4>Linked instances in this document</h4>{documentInstances.map((instance) => {
-            const definition = state.components.find((candidate) => candidate.id === instance.definitionId)
-            if (!definition) return null
-            const next = componentUpdate(definition, instance)
-            const outdated = next !== instance.renderedContent
-            return <div className="component-instance" key={instance.id}><div><strong>{definition.name}</strong><small>{outdated ? 'Update available' : 'Up to date'} · {instance.mode}</small></div>{outdated && <details><summary>Review changes</summary><span>Before</span><pre>{instance.renderedContent}</pre><span>After</span><pre>{next}</pre></details>}<div className="button-row">{outdated && <button className="button secondary" onClick={() => setLibraryNotice(workspaceActions.applyComponentUpdate(instance.id) ? 'Linked instance updated.' : 'The materialized source changed and could not be located; detach or reinsert it.')}><RefreshCw />Apply update</button>}<button className="button quiet" onClick={() => workspaceActions.detachComponentInstance(instance.id)}><Unlink />Detach</button></div></div>
-          })}</div>}
-        </section>}
+        {tab === 'spoiler' && <section><h3>Spoiler builder</h3><p className="section-copy">Create collapsible content. Nexus always displays its fixed “Spoiler: Show” control.</p>{mode === 'markdown' && <label>Workbench label <span className="field-note">Not exported to Nexus</span><input value={spoilerTitle} onChange={(event) => setSpoilerTitle(event.target.value)} /></label>}<label>Content hidden inside the spoiler<textarea rows={7} value={spoilerContent} onChange={(event) => setSpoilerContent(event.target.value)} /></label><details className="section-source-preview"><summary>Preview source to insert</summary><pre>{spoilerSource}</pre></details><button className="button primary" onClick={insertSpoiler}><Plus />Insert spoiler into document</button><p className="tool-outcome">Insert {insertionTarget} and closes Tools. This does not create a saved reusable item.</p></section>}
+        {tab === 'components' && <ComponentsPanel mode={mode} documentContent={documentContent} documentId={documentId} selection={selection} onInsert={onInsert} />}
         {tab === 'templates' && <section>
-          <h3>Templates</h3><p className="section-copy">Insert a practical structure, save this document, or move your template library between browsers.</p>
+          <h3>Templates</h3><p className="section-copy">Templates are complete starting structures. Saving a template always captures the entire current document—not selected text.</p>
           {libraryNotice && <p className="inline-notice" role="status">{libraryNotice}</p>}
-          <div className="button-row"><button className="button secondary" disabled={state.templates.length === 0} onClick={() => downloadLibrary('templates', state.templates)}><Download />Export library</button><button className="button secondary" onClick={() => templateInput.current?.click()}><Upload />Import library</button><input ref={templateInput} hidden type="file" accept="application/json,.json" onChange={(event) => void importLibrary('templates', event.target.files?.[0])} /></div>
-          <label>Template name<input value={blockName} onChange={(event) => setBlockName(event.target.value)} /></label><button className="button secondary" onClick={() => workspaceActions.addTemplate({ name: blockName, mode, content: documentContent })}><Save />Save current document</button>
-          {builtInTemplates.map((template) => <button className="library-item" key={template.name} disabled={template.preserveSource && mode !== template.mode} title={template.preserveSource && mode !== template.mode ? `Switch to ${template.mode.toUpperCase()} to preserve the canonical source` : undefined} onClick={() => insertBlock(convertContent(template.content, template.mode, mode))}><FileStack /><span><strong>{template.name}</strong><small>{template.description}</small></span><Plus /></button>)}
-          {state.templates.map((template) => <div className="library-row" key={template.id}><button className="library-item" onClick={() => insertBlock(convertContent(template.content, template.mode, mode))}><FileStack /><span><strong>{template.name}</strong><small>Saved as {template.mode}</small></span><Plus /></button><button className="icon-button subtle" aria-label={`Delete template ${template.name}`} onClick={() => workspaceActions.deleteTemplate(template.id)}><Trash2 /></button></div>)}
+          <div className="tool-subsection"><h4>Save this document</h4><label>Template name<input value={blockName} onChange={(event) => setBlockName(event.target.value)} /></label><button className="button secondary" disabled={!blockName.trim() || !documentContent.trim()} onClick={() => { workspaceActions.addTemplate({ name: blockName.trim(), mode, content: documentContent }); setLibraryNotice(`Saved the entire ${documentContent.length.toLocaleString()}-character document as ${blockName.trim()}.`) }}><Save />Save entire document as template</button></div>
+          <div className="tool-subsection"><h4>Insert a starting structure</h4><p className="section-copy">Choose a template to insert it at the current selection or cursor. Your existing document is not cleared.</p>{builtInTemplates.map((template) => <button className="library-item" key={template.name} disabled={template.preserveSource && mode !== template.mode} title={template.preserveSource && mode !== template.mode ? `Switch to ${template.mode.toUpperCase()} to preserve the canonical source` : undefined} onClick={() => insertBlock(convertContent(template.content, template.mode, mode))}><FileStack /><span><strong>{template.name}</strong><small>{template.description} · click to insert</small></span><Plus /></button>)}{state.templates.map((template) => <div className="library-row" key={template.id}><button className="library-item" aria-label={`Insert template ${template.name}`} onClick={() => insertBlock(convertContent(template.content, template.mode, mode))}><FileStack /><span><strong>{template.name}</strong><small>Saved as {template.mode.toUpperCase()} · click to insert</small></span><Plus /></button><button className="icon-button subtle" aria-label={`Delete template ${template.name}`} onClick={() => workspaceActions.deleteTemplate(template.id)}><Trash2 /></button></div>)}</div>
+          <div className="tool-subsection"><h4>Move the template library</h4><div className="button-row compact-row"><button className="button secondary" disabled={state.templates.length === 0} onClick={() => downloadLibrary('templates', state.templates)}><Download />Export saved templates</button><button className="button secondary" onClick={() => templateInput.current?.click()}><Upload />Import templates</button><input ref={templateInput} hidden type="file" accept="application/json,.json" onChange={(event) => void importLibrary('templates', event.target.files?.[0])} /></div></div>
         </section>}
-        {tab === 'color' && <section><h3>Colour picker</h3><p className="section-copy">Nexus accepts hex colours through the `[color]` tag.</p><label>Colour<div className="color-control"><input type="color" value={color} onChange={(event) => setColor(event.target.value)} /><input value={color} onChange={(event) => setColor(event.target.value)} /></div></label><div className="color-preview" style={{ color }}>Colour preview</div><button className="button primary" onClick={insertColor}><Plus />Insert colour</button></section>}
+        {tab === 'color' && <section><h3>Colour text</h3><p className="section-copy">Choose a Nexus-compatible hex colour. {selection.hasSelection ? `The selected text “${selection.content.slice(0, 48)}${selection.content.length > 48 ? '…' : ''}” will be wrapped with a colour tag.` : 'No text was selected, so editable placeholder text will be inserted.'}</p><label>Hex colour<div className="color-control"><input type="color" value={color} onChange={(event) => setColor(event.target.value)} /><input value={color} onChange={(event) => setColor(event.target.value)} /></div></label><div className="color-preview" style={{ color }}>{selection.hasSelection ? selection.content : 'Coloured text preview'}</div><details className="section-source-preview"><summary>Preview source to insert</summary><pre>{`[color=${color}]${selection.hasSelection ? selection.content : 'coloured text'}[/color]`}</pre></details><button className="button primary" onClick={insertColor}><Plus />{selection.hasSelection ? 'Apply colour to selected text' : 'Insert coloured text'}</button><p className="tool-outcome">The action {insertionTarget} and closes Tools.</p></section>}
       </div>
     </aside>
   )

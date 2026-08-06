@@ -1,6 +1,7 @@
-import { render } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { bbcodeDiagnostics, renderBBCode } from './bbcode'
 import { NEXUS_PUBLIC_FIDELITY_V2, NEXUS_PUBLIC_FIDELITY_V2_MEDIA } from '../fixtures/nexusPublicFidelityV2'
+import { NEXUS_EDITORIAL_STRESS_FIXTURE } from '../fixtures/nexusEditorialStress'
 
 describe('captured Nexus compatibility fixture', () => {
   it('has no parser diagnostics in the core or optional media fixtures', () => {
@@ -8,7 +9,7 @@ describe('captured Nexus compatibility fixture', () => {
     expect(bbcodeDiagnostics(NEXUS_PUBLIC_FIDELITY_V2_MEDIA)).toEqual([])
   })
 
-  it('renders the full fixture through the inert preview pipeline', () => {
+  it('renders the full fixture through the safe preview pipeline', () => {
     const { container } = render(<article>{renderBBCode(NEXUS_PUBLIC_FIDELITY_V2)}</article>)
     expect(container).toHaveTextContent('Nexus Public Fidelity Fixture v2')
     expect(container).toHaveTextContent('FIXTURE-END · MDW-PUBLIC-V2')
@@ -79,5 +80,22 @@ describe('captured Nexus compatibility fixture', () => {
     withoutMap.unmount()
     const withMap = render(<div>{renderBBCode('[img]asset://asset-1[/img]', { 'asset-1': 'blob:https://local.test/asset' })}</div>)
     expect(withMap.container.querySelector('img')).toHaveAttribute('src', 'blob:https://local.test/asset')
+  })
+
+  it('renders the editorial stress fixture through the safe public pipeline', () => {
+    expect(bbcodeDiagnostics(NEXUS_EDITORIAL_STRESS_FIXTURE)).toEqual([])
+    const { container } = render(<article>{renderBBCode(NEXUS_EDITORIAL_STRESS_FIXTURE, { 'editorial-letter': 'blob:https://local.test/editorial-letter' })}</article>)
+
+    expect(container).toHaveTextContent('Editorial stress fixture')
+    expect([...container.querySelectorAll<HTMLElement>('span')].find((element) => element.style.fontFamily.includes('Arial Black'))).toBeInTheDocument()
+    expect(container.querySelectorAll('span[style*="font-size: 32px"]')).toHaveLength(5)
+    expect(container.querySelector('h2 span[style*="font-size: 24px"]')).toHaveTextContent('What Is This Mod?')
+    expect(container.querySelector('figure.nexus-youtube')).toHaveAccessibleName('YouTube video dQw4w9WgXcQ')
+    fireEvent.click(screen.getByRole('button', { name: 'Play YouTube video dQw4w9WgXcQ' }))
+    expect(screen.getByTitle('YouTube video dQw4w9WgXcQ')).toHaveAttribute('src', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0')
+    expect(container.querySelector('img')).toHaveAttribute('src', 'blob:https://local.test/editorial-letter')
+    expect(container.querySelectorAll('ul')).toHaveLength(2)
+    expect(container.querySelectorAll('li')).toHaveLength(5)
+    expect(container.querySelectorAll('hr')).toHaveLength(2)
   })
 })

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { BB_CODE_COMPLETIONS, bbcodeDiagnostics, parseBBCode, renderBBCode } from './bbcode'
 
 describe('Nexus BBCode parser', () => {
@@ -55,10 +55,11 @@ describe('Nexus BBCode parser', () => {
     expect(screen.getByText('bad')).toBeInTheDocument()
   })
 
-  it('renders media as inert placeholders rather than active iframes', () => {
+  it('loads YouTube players on demand while keeping unsupported video inert', () => {
     const { container } = render(<div>{renderBBCode('[youtube]abc-123[/youtube][video]https://example.com/v[/video]')}</div>)
     expect(container.querySelector('iframe')).not.toBeInTheDocument()
-    expect(screen.getByText(/YouTube video/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Play YouTube video abc-123' }))
+    expect(screen.getByTitle('YouTube video abc-123')).toBeInTheDocument()
     expect(screen.getByText(/video embed/)).toBeInTheDocument()
   })
 
