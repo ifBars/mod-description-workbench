@@ -14,6 +14,7 @@ if (repository !== 'ifBars/mod-description-workbench') throw new Error('Updater 
 const bundle = join('src-tauri', 'target', 'release', 'bundle', 'nsis')
 const installer = join(bundle, `Mod Description Workbench_${version}_x64-setup.exe`)
 const signature = `${installer}.sig`
+const publishedInstallerName = basename(installer).replaceAll(' ', '.')
 if (!existsSync(installer) || statSync(installer).size === 0) throw new Error('Signed NSIS updater artifact is missing or empty.')
 if (!existsSync(signature) || statSync(signature).size === 0) throw new Error('NSIS updater signature is missing or empty.')
 
@@ -24,7 +25,7 @@ const manifest = {
   platforms: {
     'windows-x86_64': {
       signature: readFileSync(signature, 'utf8').trim(),
-      url: `https://github.com/${repository}/releases/download/${tag}/${encodeURIComponent(basename(installer))}`,
+      url: `https://github.com/${repository}/releases/download/${tag}/${encodeURIComponent(publishedInstallerName)}`,
     },
   },
 }
