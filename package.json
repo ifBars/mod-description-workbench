@@ -20,7 +20,9 @@
     "desktop:build": "bun scripts/desktop.mjs build",
     "desktop:check": "bun scripts/desktop.mjs check",
     "desktop:release": "bun scripts/desktop-release.mjs",
-    "version:check": "bun scripts/check-version.mjs"
+    "version:check": "bun scripts/check-version.mjs",
+    "release:tag-check": "bun scripts/check-release-tag.mjs",
+    "updater:manifest": "bun scripts/create-updater-manifest.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

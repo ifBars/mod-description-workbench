@@ -6,9 +6,10 @@ const generatedConfig = 'src-tauri/.tauri-updater.generated.conf.json'
 const generatedCapability = 'src-tauri/capabilities/.updater.generated.json'
 const publicKey = process.env.TAURI_UPDATER_PUBLIC_KEY?.trim()
 const privateKey = process.env.TAURI_SIGNING_PRIVATE_KEY?.trim()
+const privateKeyPassword = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 
-if (!publicKey || !privateKey) {
-  throw new Error('A signed release requires TAURI_UPDATER_PUBLIC_KEY and TAURI_SIGNING_PRIVATE_KEY. See docs/DESKTOP_RELEASES.md.')
+if (!publicKey || !privateKey || !privateKeyPassword) {
+  throw new Error('A signed release requires TAURI_UPDATER_PUBLIC_KEY, TAURI_SIGNING_PRIVATE_KEY, and TAURI_SIGNING_PRIVATE_KEY_PASSWORD. See docs/DESKTOP_RELEASES.md.')
 }
 if (existsSync(generatedConfig) || existsSync(generatedCapability)) {
   throw new Error('A generated updater configuration already exists. Remove only the generated local updater files before retrying.')
