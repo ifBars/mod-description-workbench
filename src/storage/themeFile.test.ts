@@ -17,4 +17,8 @@ describe('portable themes', () => {
   it('rejects invalid input without producing an importable theme', async () => {
     await expect(readThemeFile({ name: 'invalid.json', bytes: new TextEncoder().encode('{"tokens":{}}') })).rejects.toThrow('Invalid theme file')
   })
+
+  it.each(['{"name":true,"tokens":{}}', '{"dark":"yes","tokens":{}}'])('rejects invalid theme scalar fields', async (contents) => {
+    await expect(readThemeFile({ name: 'invalid.json', bytes: new TextEncoder().encode(contents) })).rejects.toThrow('Invalid theme file')
+  })
 })

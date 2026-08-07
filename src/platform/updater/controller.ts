@@ -75,7 +75,9 @@ export class UpdateController {
   async check() {
     if (this.busy()) return false
     const operation = ++this.operation
+    await this.closeUpdate()
     this.set({ ...this.state, status: 'checking', error: null, update: null, downloadedBytes: 0, contentLength: null })
+    let checkedUpdate: AvailableUpdate | null = null
     try {
       const platform = await this.loadPlatform()
       if (operation !== this.operation) return false
@@ -83,20 +85,24 @@ export class UpdateController {
         this.set(unavailableState(platform))
         return false
       }
-      const [currentVersion, update] = await Promise.all([platform.currentVersion(), platform.check()])
+      const [versionResult, updateResult] = await Promise.allSettled([platform.currentVersion(), platform.check()])
+      if (updateResult.status === 'fulfilled') checkedUpdate = updateResult.value
       if (operation !== this.operation) {
-        if (update) await update.close().catch(() => undefined)
+        if (checkedUpdate) await checkedUpdate.close().catch(() => undefined)
         return false
       }
-      this.update = update
+      if (versionResult.status === 'rejected') throw versionResult.reason
+      if (updateResult.status === 'rejected') throw updateResult.reason
+      this.update = checkedUpdate
       this.set({
         ...initialState,
-        status: update ? 'available' : 'current',
-        currentVersion,
-        update: update ? summaryFrom(update) : null,
+        status: checkedUpdate ? 'available' : 'current',
+        currentVersion: versionResult.value,
+        update: checkedUpdate ? summaryFrom(checkedUpdate) : null,
       })
-      return Boolean(update)
+      return Boolean(checkedUpdate)
     } catch (error) {
+      if (checkedUpdate && checkedUpdate !== this.update) await checkedUpdate.close().catch(() => undefined)
       if (operation !== this.operation) return false
       await this.closeUpdate()
       this.set({ ...this.state, status: 'error', error: errorMessage('check', error) })

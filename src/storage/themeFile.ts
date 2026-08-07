@@ -10,10 +10,14 @@ async function selectedFile(file: SelectedFile | File): Promise<SelectedFile> {
 }
 
 export async function readThemeFile(input: SelectedFile | File): Promise<CustomTheme> {
-  let value: Partial<CustomTheme>
-  try { value = JSON.parse(new TextDecoder().decode((await selectedFile(input)).bytes)) as Partial<CustomTheme> } catch { throw new Error('Invalid theme file.') }
-  if (!value.tokens || !requiredTokens.every((key) => /^#[0-9a-f]{6}$/i.test(value.tokens?.[key] ?? ''))) throw new Error('Invalid theme file.')
-  return { id: crypto.randomUUID(), name: value.name?.slice(0, 60) || 'Imported theme', dark: value.dark ?? true, tokens: value.tokens }
+  let value: unknown
+  try { value = JSON.parse(new TextDecoder().decode((await selectedFile(input)).bytes)) } catch { throw new Error('Invalid theme file.') }
+  if (!value || typeof value !== 'object') throw new Error('Invalid theme file.')
+  const theme = value as { name?: unknown; dark?: unknown; tokens?: unknown }
+  if ((theme.name !== undefined && typeof theme.name !== 'string') || (theme.dark !== undefined && typeof theme.dark !== 'boolean')) throw new Error('Invalid theme file.')
+  const tokens = theme.tokens as Record<string, unknown> | undefined
+  if (!tokens || !requiredTokens.every((key) => typeof tokens[key] === 'string' && /^#[0-9a-f]{6}$/i.test(tokens[key]))) throw new Error('Invalid theme file.')
+  return { id: crypto.randomUUID(), name: theme.name?.slice(0, 60) || 'Imported theme', dark: theme.dark ?? true, tokens: tokens as unknown as CustomTheme['tokens'] }
 }
 
 export function createThemeExport(theme: CustomTheme): SaveFileRequest {

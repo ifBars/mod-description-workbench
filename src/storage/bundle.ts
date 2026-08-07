@@ -35,10 +35,14 @@ export function parseWorkspaceBundle(file: SelectedFile) {
   const workspaceBytes = archive[WORKSPACE_FILE]
   if (!workspaceBytes) throw new Error('Workspace bundle is missing workspace.json')
   const snapshot = parseWorkspaceSnapshot(JSON.parse(strFromU8(workspaceBytes)))
-  return { snapshot, assets: new Map((snapshot.imageAssets ?? []).filter((asset) => asset.kind === 'local').flatMap((asset) => {
+  const assets = new Map<string, Uint8Array>()
+  for (const asset of snapshot.imageAssets ?? []) {
+    if (asset.kind !== 'local') continue
     const bytes = archive[`assets/${asset.id}`]
-    return bytes ? [[asset.id, bytes] as const] : []
-  })) }
+    if (!bytes) throw new Error(`Workspace bundle is missing local asset ${asset.id}.`)
+    assets.set(asset.id, bytes)
+  }
+  return { snapshot, assets }
 }
 
 export async function readWorkspaceBundle(input: SelectedFile | File): Promise<WorkspaceSnapshot> {

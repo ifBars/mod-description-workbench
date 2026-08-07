@@ -38,6 +38,7 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined
 let checkpointTimer: ReturnType<typeof setTimeout> | undefined
 let queuedWorkspaceWrite: Promise<void> = Promise.resolve()
 let saveVersion = 0
+let saveErrorSource: 'workspace' | 'checkpoint' | undefined
 
 function emit() {
   listeners.forEach((listener) => listener())
@@ -57,7 +58,8 @@ function serializableSnapshot(): WorkspaceSnapshot {
   }
 }
 
-function setSaveError(message: string) {
+function setSaveError(message: string, source: 'workspace' | 'checkpoint' = 'workspace') {
+  saveErrorSource = source
   state = { ...state, saveState: 'error', saveError: message }
   emit()
 }
@@ -70,6 +72,8 @@ function persistWorkspace(snapshot: WorkspaceSnapshot) {
   queuedWorkspaceWrite = write.catch(() => undefined)
   return write.then(() => {
     if (version !== saveVersion) return
+    if (saveErrorSource === 'checkpoint') return
+    saveErrorSource = undefined
     state = { ...state, saveState: 'saved', saveError: undefined }
     emit()
   }).catch((error) => {
@@ -79,8 +83,10 @@ function persistWorkspace(snapshot: WorkspaceSnapshot) {
 }
 
 function scheduleSave(checkpoint = false) {
-  state = { ...state, saveState: 'saving', saveError: undefined }
-  emit()
+  if (saveErrorSource !== 'checkpoint') {
+    state = { ...state, saveState: 'saving', saveError: undefined }
+    emit()
+  }
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     saveTimer = undefined
@@ -97,7 +103,12 @@ function scheduleSave(checkpoint = false) {
       void saveCheckpoint({
         id: crypto.randomUUID(), documentId: document.id, content: document.content,
         mode: document.mode, createdAt: Date.now(),
-      }, state.preferences.checkpointRetention).catch(() => setSaveError('Could not save locally. Try again.'))
+      }, state.preferences.checkpointRetention).then(() => {
+        if (saveErrorSource !== 'checkpoint') return
+        saveErrorSource = undefined
+        state = { ...state, saveState: 'saved', saveError: undefined }
+        emit()
+      }).catch(() => setSaveError('Could not save locally. Try again.', 'checkpoint'))
     }, state.preferences.checkpointDelayMs)
   }
 }
@@ -413,9 +424,14 @@ export const workspaceActions = {
     clearTimeout(saveTimer)
     clearTimeout(checkpointTimer)
     Object.values(state.assetObjectUrls).forEach((url) => URL.revokeObjectURL(url))
-    await clearAllData()
     const snapshot = createDefaultSnapshot()
-    await saveWorkspace(snapshot)
+    const reset = queuedWorkspaceWrite.then(async () => {
+      await clearAllData()
+      await saveWorkspace(snapshot)
+    })
+    queuedWorkspaceWrite = reset.catch(() => undefined)
+    await reset
+    saveErrorSource = undefined
     state = { ...state, ...snapshot, hydrated: true, saveState: 'saved', saveError: undefined, screen: 'settings', toolsOpen: false, documentsOpen: false, assetObjectUrls: {} }
     emit()
   },

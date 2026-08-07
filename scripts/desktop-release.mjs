@@ -26,14 +26,14 @@ const configuration = {
   },
 }
 
-await Bun.write(generatedConfig, `${JSON.stringify(configuration, null, 2)}\n`)
-await Bun.write(generatedCapability, `${JSON.stringify({
-  identifier: 'updater',
-  description: 'Allows signed update checks, installation, and the final restart only for release builds.',
-  windows: ['main'],
-  permissions: ['process:allow-restart', 'updater:allow-check', 'updater:allow-download-and-install'],
-}, null, 2)}\n`)
 try {
+  await Bun.write(generatedConfig, `${JSON.stringify(configuration, null, 2)}\n`)
+  await Bun.write(generatedCapability, `${JSON.stringify({
+    identifier: 'updater',
+    description: 'Allows signed update checks, installation, and the final restart only for release builds.',
+    windows: ['main'],
+    permissions: ['process:allow-restart', 'updater:allow-check', 'updater:allow-download-and-install'],
+  }, null, 2)}\n`)
   const child = Bun.spawn(['bun', 'scripts/desktop.mjs', 'build', '--features', 'updater', '--config', generatedConfig], {
     cwd: process.cwd(),
     env: { ...process.env, VITE_TAURI_UPDATER_CONFIGURED: 'true' },

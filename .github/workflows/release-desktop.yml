@@ -16,11 +16,7 @@ jobs:
     name: Build and publish Windows release
     runs-on: windows-latest
     env:
-      GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.ref_name }}
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.4.2
         with:
@@ -35,6 +31,10 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run desktop:release
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
       - run: bun run updater:manifest
       - name: Write release notes
         shell: pwsh
@@ -54,6 +54,8 @@ jobs:
           '@ | Set-Content -LiteralPath .artifacts/release-notes.md -Encoding utf8
       - name: Publish GitHub Release
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $msi = "src-tauri/target/release/bundle/msi/Mod Description Workbench_${version}_x64_en-US.msi"

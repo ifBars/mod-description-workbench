@@ -10,7 +10,7 @@ async function selectedFile(file: File) {
 
 export const browserFiles: FilePlatform = {
   chooseFile(request) {
-    return new Promise<FileSelection>((resolve) => {
+    return new Promise<FileSelection>((resolve, reject) => {
       const input = document.createElement('input')
       input.type = 'file'
       input.accept = acceptValue(request)
@@ -22,10 +22,16 @@ export const browserFiles: FilePlatform = {
         input.remove()
         resolve(result)
       }
+      const fail = (error: unknown) => {
+        if (settled) return
+        settled = true
+        input.remove()
+        reject(error)
+      }
       input.addEventListener('change', () => {
         const file = input.files?.[0]
         if (!file) { finish({ cancelled: true }); return }
-        void selectedFile(file).then((value) => finish({ cancelled: false, file: value }))
+        void selectedFile(file).then((value) => finish({ cancelled: false, file: value }), fail)
       }, { once: true })
       input.addEventListener('cancel', () => finish({ cancelled: true }), { once: true })
       document.body.append(input)

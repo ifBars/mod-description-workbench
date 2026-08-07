@@ -1,5 +1,6 @@
 import { createDefaultSnapshot } from '../domain/defaults'
 import { loadWorkspace } from '../storage/database'
+import * as database from '../storage/database'
 import { getWorkspaceSnapshot, workspaceActions } from './workspaceStore'
 
 describe.sequential('workspace state transitions', () => {
@@ -14,6 +15,29 @@ describe.sequential('workspace state transitions', () => {
     workspaceActions.updateContent('Persist this before closing.')
     await workspaceActions.flushPersistence()
     await expect(loadWorkspace()).resolves.toMatchObject({ documents: [expect.objectContaining({ content: 'Persist this before closing.' })] })
+  })
+
+  it('queues reset after an in-flight workspace write so defaults win deterministically', async () => {
+    await workspaceActions.flushPersistence()
+    const snapshot = createDefaultSnapshot()
+    workspaceActions.replaceSnapshot(snapshot)
+    workspaceActions.updateContent('Stale write')
+    let resolveFirstWrite: (() => void) | undefined
+    const save = vi.spyOn(database, 'saveWorkspace').mockImplementationOnce(() => new Promise<void>((resolve) => { resolveFirstWrite = resolve })).mockResolvedValue()
+    const clear = vi.spyOn(database, 'clearAllData').mockResolvedValue()
+
+    const flush = workspaceActions.flushPersistence()
+    await vi.waitFor(() => expect(resolveFirstWrite).toBeTypeOf('function'))
+    const reset = workspaceActions.resetAllData()
+    resolveFirstWrite!()
+    await flush
+    await reset
+
+    expect(clear).toHaveBeenCalledOnce()
+    expect(save).toHaveBeenCalledTimes(2)
+    expect(save.mock.calls[1]?.[0].documents[0]?.content).not.toBe('Stale write')
+    save.mockRestore()
+    clear.mockRestore()
   })
 
   it('creates and selects a new document atomically', () => {

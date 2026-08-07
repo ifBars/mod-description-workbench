@@ -1,5 +1,6 @@
 import { createDefaultSnapshot } from '../domain/defaults'
-import { createWorkspaceBundle, createWorkspaceExport, readWorkspaceBundle, WORKSPACE_EXPORT_FILTERS, WORKSPACE_IMPORT_FILTERS } from './bundle'
+import { createWorkspaceBundle, createWorkspaceExport, parseWorkspaceBundle, readWorkspaceBundle, WORKSPACE_EXPORT_FILTERS, WORKSPACE_IMPORT_FILTERS } from './bundle'
+import { strToU8, zipSync } from 'fflate'
 import { loadAsset, saveAsset } from './database'
 
 describe('portable workspace bundles', () => {
@@ -63,7 +64,22 @@ describe('portable workspace bundles', () => {
     await expect(readWorkspaceBundle(new File([emptyZip], 'broken.mdw'))).rejects.toThrow('workspace.json')
   })
 
+  it('rejects a bundle that declares a missing local asset before writing anything', () => {
+    const snapshot = createDefaultSnapshot()
+    snapshot.imageAssets.push({ id: 'missing-local', name: 'missing.png', kind: 'local', url: null, mimeType: 'image/png', size: 10, createdAt: 1 })
+    const bytes = zipSync({ 'workspace.json': strToU8(JSON.stringify(snapshot)) })
+
+    expect(() => parseWorkspaceBundle({ name: 'missing.mdw', bytes })).toThrow('missing local asset')
+  })
+
   it('rejects invalid workspace data before it can be applied', async () => {
     await expect(readWorkspaceBundle({ name: 'invalid.json', bytes: new TextEncoder().encode('{"schemaVersion":1}') })).rejects.toThrow('Invalid workspace file')
+  })
+
+  it('rejects a workspace whose active document is not declared', async () => {
+    const snapshot = createDefaultSnapshot()
+    snapshot.activeDocumentId = 'missing-document'
+
+    await expect(readWorkspaceBundle(new File([JSON.stringify(snapshot)], 'invalid.json'))).rejects.toThrow('Invalid workspace file')
   })
 })

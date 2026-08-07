@@ -162,7 +162,7 @@ export function WorkspacePage() {
       {state.documentsOpen && <DocumentsDrawer documents={state.documents} activeId={state.activeDocumentId} open onClose={closeDocuments} onCreate={workspaceActions.createDocument} onSelect={(id) => { workspaceActions.selectDocument(id); closeDocuments() }} onDelete={workspaceActions.deleteDocument} onRestore={(documentId, checkpoint) => { workspaceActions.selectDocument(documentId); workspaceActions.restoreContent(checkpoint.content, checkpoint.mode); closeDocuments() }} />}
       {state.toolsOpen && <ToolsDrawer key={state.toolTab} open mode={editorSurface === 'visual' ? 'bbcode' : document.mode} documentContent={editorSurface === 'visual' ? (document.nexusContent ?? exportDocumentContent(document, 'bbcode')) : document.content} documentId={document.id} selection={toolSelection} initialTab={state.toolTab} onClose={closeTools} onInsert={(snippet) => { insert(snippet); closeTools() }} />}
     </div>
-    {state.screen === 'settings' && <div data-theme={theme} style={themeVariables(customTheme)}><SettingsPage /></div>}
+    {state.screen === 'settings' && <div className="settings-host" data-theme={theme} style={themeVariables(customTheme)}><SettingsPage /></div>}
     </>
   )
 }

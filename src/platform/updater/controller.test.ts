@@ -52,6 +52,28 @@ describe('desktop update controller', () => {
     expect(controller.getSnapshot()).toMatchObject({ status: 'available', update: { version: '0.2.0' } })
   })
 
+  it('closes a previous available update before checking again', async () => {
+    const firstUpdate = available('0.2.0')
+    const secondUpdate = available('0.3.0')
+    const check = vi.fn().mockResolvedValueOnce(firstUpdate).mockResolvedValueOnce(secondUpdate)
+    const controller = new UpdateController(async () => platform(null, { check }))
+
+    await expect(controller.check()).resolves.toBe(true)
+    await expect(controller.check()).resolves.toBe(true)
+
+    expect(firstUpdate.close).toHaveBeenCalledOnce()
+    expect(secondUpdate.close).not.toHaveBeenCalled()
+  })
+
+  it('closes a completed update when the paired version lookup fails', async () => {
+    const update = available()
+    const controller = new UpdateController(async () => platform(update, { currentVersion: vi.fn(async () => { throw new Error('version unavailable') }) }))
+
+    await expect(controller.check()).resolves.toBe(false)
+    expect(update.close).toHaveBeenCalledOnce()
+    expect(controller.getSnapshot()).toMatchObject({ status: 'error', error: expect.stringContaining('version unavailable') })
+  })
+
   it('tracks trustworthy download progress and waits for an explicit restart', async () => {
     const update = available()
     const native = platform(update)

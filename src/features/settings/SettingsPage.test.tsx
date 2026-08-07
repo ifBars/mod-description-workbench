@@ -29,6 +29,18 @@ describe('SettingsPage', () => {
     expect(screen.getByText('BBCode autocomplete')).toBeInTheDocument()
   })
 
+  it('keeps invalid font sizes out of workspace preferences and names each theme token control', () => {
+    render(<SettingsPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Editor' }))
+    fireEvent.change(screen.getByLabelText('Source font size'), { target: { value: '99', valueAsNumber: 99 } })
+    expect(getWorkspaceSnapshot().preferences.editorFontSize).toBe(14)
+
+    workspaceActions.createCustomTheme(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Appearance' }))
+    expect(screen.getByLabelText('canvas colour picker')).toBeInTheDocument()
+    expect(screen.getByLabelText('canvas hex value')).toBeInTheDocument()
+  })
+
   it('does not expose desktop updater controls in the browser runtime', () => {
     render(<SettingsPage />)
 

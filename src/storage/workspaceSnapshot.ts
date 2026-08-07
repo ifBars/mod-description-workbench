@@ -11,6 +11,10 @@ export const workspaceSnapshotSchema = z.object({
   components: z.array(z.object({ id: z.string(), name: z.string(), mode: z.enum(['markdown', 'bbcode']), content: z.string(), createdAt: z.number(), variables: z.array(z.object({ id: z.string(), name: z.string(), type: z.enum(['text', 'color', 'url', 'image', 'choice', 'boolean']), defaultValue: z.union([z.string(), z.boolean()]), options: z.array(z.string()).optional() })).default([]) })).default([]),
   componentInstances: z.array(z.object({ id: z.string(), definitionId: z.string(), documentId: z.string(), values: z.record(z.string(), z.union([z.string(), z.boolean()])), mode: z.enum(['markdown', 'bbcode']), renderedContent: z.string(), createdAt: z.number(), updatedAt: z.number() })).default([]),
   templates: z.array(z.object({ id: z.string(), name: z.string(), mode: z.enum(['markdown', 'bbcode']), content: z.string(), createdAt: z.number() })).default([]),
+}).superRefine((snapshot, context) => {
+  if (!snapshot.documents.some((document) => document.id === snapshot.activeDocumentId)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['activeDocumentId'], message: 'The active document must exist in the workspace.' })
+  }
 })
 
 export function parseWorkspaceSnapshot(snapshot: unknown, errorMessage = 'Invalid workspace file.'): WorkspaceSnapshot {
