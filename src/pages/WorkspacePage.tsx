@@ -10,9 +10,10 @@ import { SettingsPage } from '../features/settings/SettingsPage'
 import { ToolsDrawer } from '../features/tools/ToolsDrawer'
 import { SplitDivider } from '../features/layout/SplitDivider'
 import { getWorkspaceSnapshot, useWorkspaceStore, workspaceActions } from '../state/workspaceStore'
-import { downloadWorkspaceBundle, readWorkspaceBundle } from '../storage/bundle'
-import { downloadDocument, exportDocumentContent } from '../storage/documentExport'
+import { WORKSPACE_IMPORT_FILTERS, readWorkspaceBundle, saveWorkspaceBundle } from '../storage/bundle'
+import { exportDocumentContent, saveDocument } from '../storage/documentExport'
 import { trapFocus } from '../lib/focusTrap'
+import { filePlatform } from '../platform/files'
 
 type VisualEditorModule = { default: typeof import('../features/editor/VisualEditor').VisualEditor }
 let visualEditorModule: Promise<VisualEditorModule> | undefined
@@ -30,7 +31,6 @@ export function WorkspacePage() {
   const [editorSurface, setEditorSurface] = useState<'source' | 'visual'>('source')
   const [visualReady, setVisualReady] = useState(false)
   const [toolSelection, setToolSelection] = useState<EditorSelection>({ content: '', hasSelection: false })
-  const fileInput = useRef<HTMLInputElement>(null)
   const sourceEditor = useRef<EditorHandle>(null)
   const visualEditor = useRef<EditorHandle>(null)
   const overlayTrigger = useRef<HTMLElement | null>(null)
@@ -65,10 +65,21 @@ export function WorkspacePage() {
   }
   const openMobilePreview = () => { workspaceActions.setPreviewDevice('mobile'); workspaceActions.setLayout('preview') }
   const toggleMobilePreview = () => state.preferences.layout === 'preview' ? workspaceActions.setLayout('write') : openMobilePreview()
-  const importWorkspace = async (file?: File) => {
-    if (!file) return
-    workspaceActions.replaceSnapshot(await readWorkspaceBundle(file))
-    closeExport()
+  const importWorkspace = async () => {
+    try {
+      const selection = await (await filePlatform()).chooseFile({ filters: WORKSPACE_IMPORT_FILTERS })
+      if (selection.cancelled) return
+      workspaceActions.replaceSnapshot(await readWorkspaceBundle(selection.file))
+      closeExport()
+    } catch (error) {
+      setExportStatus(error instanceof Error ? error.message : 'Workspace import failed.')
+    }
+  }
+  const exportDocument = async (format: 'markdown' | 'bbcode' | 'html' | 'text') => {
+    try { await saveDocument(document, format) } catch { setExportStatus('Document export failed.') }
+  }
+  const exportWorkspace = async () => {
+    try { await saveWorkspaceBundle(getWorkspaceSnapshot()) } catch { setExportStatus('Workspace export failed.') }
   }
   const copyBBCode = async () => {
     await navigator.clipboard.writeText(exportDocumentContent(document, 'bbcode'))
@@ -91,15 +102,15 @@ export function WorkspacePage() {
             <button className="button primary" aria-expanded={exportOpen} aria-haspopup="dialog" onClick={toggleExport}><Download />Export</button>
             {exportOpen && <div className="export-menu" role="dialog" aria-label="Export and import" onKeyDown={(event) => trapFocus(event, closeExport)}>
               <div className="export-menu-header"><strong>Current document</strong><button className="icon-button subtle" aria-label="Close export" onClick={closeExport}><X /></button></div>
-              <button autoFocus onClick={() => downloadDocument(document, 'markdown')}>Download Markdown</button>
-              <button onClick={() => downloadDocument(document, 'bbcode')}>Download Nexus BBCode</button>
-              <button onClick={() => downloadDocument(document, 'html')}>Download rich HTML</button>
-              <button onClick={() => downloadDocument(document, 'text')}>Download plain text</button>
+              <button autoFocus onClick={() => void exportDocument('markdown')}>Download Markdown</button>
+              <button onClick={() => void exportDocument('bbcode')}>Download Nexus BBCode</button>
+              <button onClick={() => void exportDocument('html')}>Download rich HTML</button>
+              <button onClick={() => void exportDocument('text')}>Download plain text</button>
               <button onClick={() => void copyBBCode()}>Copy Nexus BBCode</button>
               <span />
               <strong>Portable workspace</strong>
-              <button onClick={() => void downloadWorkspaceBundle(getWorkspaceSnapshot())}>Download workspace (.mdw)</button>
-              <button onClick={() => fileInput.current?.click()}><Upload />Import workspace</button>
+              <button onClick={() => void exportWorkspace()}>Download workspace (.mdw)</button>
+              <button onClick={() => void importWorkspace()}><Upload />Import workspace</button>
               {exportStatus && <small role="status">{exportStatus}</small>}
             </div>}
           </div>
@@ -150,7 +161,6 @@ export function WorkspacePage() {
       {(state.documentsOpen || state.toolsOpen) && <button className="drawer-backdrop" aria-label="Close panel" onClick={() => { if (state.documentsOpen) closeDocuments(); if (state.toolsOpen) closeTools() }} />}
       {state.documentsOpen && <DocumentsDrawer documents={state.documents} activeId={state.activeDocumentId} open onClose={closeDocuments} onCreate={workspaceActions.createDocument} onSelect={(id) => { workspaceActions.selectDocument(id); closeDocuments() }} onDelete={workspaceActions.deleteDocument} onRestore={(documentId, checkpoint) => { workspaceActions.selectDocument(documentId); workspaceActions.restoreContent(checkpoint.content, checkpoint.mode); closeDocuments() }} />}
       {state.toolsOpen && <ToolsDrawer key={state.toolTab} open mode={editorSurface === 'visual' ? 'bbcode' : document.mode} documentContent={editorSurface === 'visual' ? (document.nexusContent ?? exportDocumentContent(document, 'bbcode')) : document.content} documentId={document.id} selection={toolSelection} initialTab={state.toolTab} onClose={closeTools} onInsert={(snippet) => { insert(snippet); closeTools() }} />}
-      <input ref={fileInput} hidden type="file" accept=".mdw,application/json,.json" onChange={(event) => void importWorkspace(event.target.files?.[0])} />
     </div>
     {state.screen === 'settings' && <div data-theme={theme} style={themeVariables(customTheme)}><SettingsPage /></div>}
     </>

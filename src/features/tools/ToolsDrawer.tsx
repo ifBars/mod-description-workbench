@@ -5,7 +5,8 @@ import type { EditorSelection } from '../editor/editorCommands'
 import { convertContent } from '../../markup/convert'
 import { imageUsageCount, validateLocalImage } from '../../domain/images'
 import { useWorkspaceStore, workspaceActions } from '../../state/workspaceStore'
-import { downloadLibrary, readLibraryFile, type LibraryKind } from '../../storage/library'
+import { LIBRARY_FILTERS, readLibraryFile, saveLibrary, type LibraryKind } from '../../storage/library'
+import { filePlatform } from '../../platform/files'
 import { trapFocus } from '../../lib/focusTrap'
 import { NEXUS_PUBLIC_FIDELITY_V2 } from '../../fixtures/nexusPublicFidelityV2'
 import { SectionBuilderPanel } from './SectionBuilderPanel'
@@ -50,7 +51,7 @@ export function ToolsDrawer({ open, mode, documentContent, documentId, selection
   const [cleanupPending, setCleanupPending] = useState(false)
   const localImageInput = useRef<HTMLInputElement>(null)
   const replacementImageInput = useRef<HTMLInputElement>(null)
-  const templateInput = useRef<HTMLInputElement>(null)
+  // Image intake remains a WebView file input: it stores browser-owned blobs in IndexedDB and is not a native export flow.
   const unusedImageCount = state.imageAssets.filter((asset) => imageUsageCount(state.documents, asset) === 0).length
 
   const addRemoteImage = () => {
@@ -98,14 +99,22 @@ export function ToolsDrawer({ open, mode, documentContent, documentId, selection
     setCleanupPending(false)
     setImageNotice(`${count} unused image${count === 1 ? '' : 's'} removed.`)
   }
-  const importLibrary = async (kind: LibraryKind, file?: File) => {
-    if (!file) return
+  const importLibrary = async (kind: LibraryKind) => {
     try {
-      const blocks = await readLibraryFile(file, kind)
+      const selection = await (await filePlatform()).chooseFile({ filters: LIBRARY_FILTERS })
+      if (selection.cancelled) return
+      const blocks = await readLibraryFile(selection.file, kind)
       if (kind === 'components') workspaceActions.importComponents(blocks)
       else workspaceActions.importTemplates(blocks)
       setLibraryNotice(`Imported ${blocks.length} ${kind}.`)
     } catch (error) { setLibraryNotice(error instanceof Error ? error.message : `Could not import ${kind}.`) }
+  }
+  const exportLibrary = async (kind: LibraryKind) => {
+    try {
+      const result = await saveLibrary(kind, kind === 'components' ? state.components : state.templates)
+      if (result.cancelled) return
+      setLibraryNotice(`Exported ${kind}.`)
+    } catch { setLibraryNotice(`Could not export ${kind}.`) }
   }
   const insertBlock = (snippet: string) => onInsert(`\n\n${snippet}\n\n`)
   const spoilerSource = mode === 'bbcode'
@@ -163,7 +172,7 @@ export function ToolsDrawer({ open, mode, documentContent, documentId, selection
           {libraryNotice && <p className="inline-notice" role="status">{libraryNotice}</p>}
           <div className="tool-subsection"><h4>Save this document</h4><label>Template name<input value={blockName} onChange={(event) => setBlockName(event.target.value)} /></label><button className="button secondary" disabled={!blockName.trim() || !documentContent.trim()} onClick={() => { workspaceActions.addTemplate({ name: blockName.trim(), mode, content: documentContent }); setLibraryNotice(`Saved the entire ${documentContent.length.toLocaleString()}-character document as ${blockName.trim()}.`) }}><Save />Save entire document as template</button></div>
           <div className="tool-subsection"><h4>Insert a starting structure</h4><p className="section-copy">Choose a template to insert it at the current selection or cursor. Your existing document is not cleared.</p>{builtInTemplates.map((template) => <button className="library-item" key={template.name} disabled={template.preserveSource && mode !== template.mode} title={template.preserveSource && mode !== template.mode ? `Switch to ${template.mode.toUpperCase()} to preserve the canonical source` : undefined} onClick={() => insertBlock(convertContent(template.content, template.mode, mode))}><FileStack /><span><strong>{template.name}</strong><small>{template.description} · click to insert</small></span><Plus /></button>)}{state.templates.map((template) => <div className="library-row" key={template.id}><button className="library-item" aria-label={`Insert template ${template.name}`} onClick={() => insertBlock(convertContent(template.content, template.mode, mode))}><FileStack /><span><strong>{template.name}</strong><small>Saved as {template.mode.toUpperCase()} · click to insert</small></span><Plus /></button><button className="icon-button subtle" aria-label={`Delete template ${template.name}`} onClick={() => workspaceActions.deleteTemplate(template.id)}><Trash2 /></button></div>)}</div>
-          <div className="tool-subsection"><h4>Move the template library</h4><div className="button-row compact-row"><button className="button secondary" disabled={state.templates.length === 0} onClick={() => downloadLibrary('templates', state.templates)}><Download />Export saved templates</button><button className="button secondary" onClick={() => templateInput.current?.click()}><Upload />Import templates</button><input ref={templateInput} hidden type="file" accept="application/json,.json" onChange={(event) => void importLibrary('templates', event.target.files?.[0])} /></div></div>
+          <div className="tool-subsection"><h4>Move the template library</h4><div className="button-row compact-row"><button className="button secondary" disabled={state.templates.length === 0} onClick={() => void exportLibrary('templates')}><Download />Export saved templates</button><button className="button secondary" onClick={() => void importLibrary('templates')}><Upload />Import templates</button></div></div>
         </section>}
         {tab === 'color' && <section><h3>Colour text</h3><p className="section-copy">Choose a Nexus-compatible hex colour. {selection.hasSelection ? `The selected text “${selection.content.slice(0, 48)}${selection.content.length > 48 ? '…' : ''}” will be wrapped with a colour tag.` : 'No text was selected, so editable placeholder text will be inserted.'}</p><label>Hex colour<div className="color-control"><input type="color" value={color} onChange={(event) => setColor(event.target.value)} /><input value={color} onChange={(event) => setColor(event.target.value)} /></div></label><div className="color-preview" style={{ color }}>{selection.hasSelection ? selection.content : 'Coloured text preview'}</div><details className="section-source-preview"><summary>Preview source to insert</summary><pre>{`[color=${color}]${selection.hasSelection ? selection.content : 'coloured text'}[/color]`}</pre></details><button className="button primary" onClick={insertColor}><Plus />{selection.hasSelection ? 'Apply colour to selected text' : 'Insert coloured text'}</button><p className="tool-outcome">The action {insertionTarget} and closes Tools.</p></section>}
       </div>

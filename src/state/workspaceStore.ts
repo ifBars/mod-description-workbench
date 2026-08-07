@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react'
-import { z } from 'zod'
 import { createDefaultSnapshot, createDocument } from '../domain/defaults'
 import { createCustomTheme } from '../domain/themes'
 import type { AuthoringMode, AuthoringToolTab, ComponentDefinition, ComponentVariable, CustomTheme, ImageAsset, PreviewDevice, ReusableBlock, ThemeMode, WorkspaceLayout, WorkspacePreferences, WorkspaceSnapshot } from '../domain/types'
@@ -7,6 +6,7 @@ import { clearAllData, deleteAsset, loadAsset, loadWorkspace, saveAsset, saveChe
 import { convertContent, normalizeForNexus } from '../markup/convert'
 import { imageUsageCount, validateLocalImage } from '../domain/images'
 import { componentUpdate } from '../domain/components'
+import { parseWorkspaceSnapshot } from '../storage/workspaceSnapshot'
 
 type SaveState = 'saved' | 'saving' | 'error'
 type Screen = 'workspace' | 'settings'
@@ -20,52 +20,6 @@ interface WorkspaceState extends WorkspaceSnapshot {
   documentsOpen: boolean
   assetObjectUrls: Record<string, string>
 }
-
-const snapshotSchema = z.object({
-  schemaVersion: z.literal(1),
-  documents: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    mode: z.enum(['markdown', 'bbcode']),
-    content: z.string(),
-    sources: z.object({ markdown: z.string().optional(), bbcode: z.string().optional() }).optional(),
-    nexusContent: z.string().optional(),
-    createdAt: z.number(),
-    updatedAt: z.number(),
-  })).min(1),
-  activeDocumentId: z.string(),
-  preferences: z.object({
-    theme: z.enum(['system', 'dark', 'light']),
-    customThemeId: z.string().nullable(),
-    layout: z.enum(['split', 'write', 'preview']),
-    splitRatio: z.number().min(35).max(70).default(54),
-    previewDevice: z.enum(['desktop', 'mobile']),
-    previewZoom: z.number(),
-    editorFontSize: z.number(),
-    wordWrap: z.boolean(),
-    reducedMotion: z.boolean(),
-    autosaveDelayMs: z.number().min(100).max(5000).default(250),
-    recoveryEnabled: z.boolean().default(true),
-    checkpointDelayMs: z.number().min(1000).max(60000).default(1500),
-    checkpointRetention: z.number().int().min(5).max(100).default(50),
-  }),
-  customThemes: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    dark: z.boolean(),
-    tokens: z.object({
-      canvas: z.string(), surfaceLow: z.string(), surfaceRaised: z.string(), border: z.string(),
-      text: z.string(), muted: z.string(), accent: z.string(), accentHover: z.string(), focus: z.string(),
-    }),
-  })),
-  imageAssets: z.array(z.object({ id: z.string(), name: z.string(), kind: z.enum(['remote', 'local']), url: z.string().nullable(), mimeType: z.string(), size: z.number(), width: z.number().optional(), height: z.number().optional(), createdAt: z.number() })).default([]),
-  components: z.array(z.object({
-    id: z.string(), name: z.string(), mode: z.enum(['markdown', 'bbcode']), content: z.string(), createdAt: z.number(),
-    variables: z.array(z.object({ id: z.string(), name: z.string(), type: z.enum(['text', 'color', 'url', 'image', 'choice', 'boolean']), defaultValue: z.union([z.string(), z.boolean()]), options: z.array(z.string()).optional() })).default([]),
-  })).default([]),
-  componentInstances: z.array(z.object({ id: z.string(), definitionId: z.string(), documentId: z.string(), values: z.record(z.string(), z.union([z.string(), z.boolean()])), mode: z.enum(['markdown', 'bbcode']), renderedContent: z.string(), createdAt: z.number(), updatedAt: z.number() })).default([]),
-  templates: z.array(z.object({ id: z.string(), name: z.string(), mode: z.enum(['markdown', 'bbcode']), content: z.string(), createdAt: z.number() })).default([]),
-})
 
 let state: WorkspaceState = {
   ...createDefaultSnapshot(),
@@ -173,13 +127,14 @@ async function localImageDimensions(file: File) {
 }
 
 void loadWorkspace().then((saved) => {
-  const parsed = snapshotSchema.safeParse(saved)
-  state = parsed.success
-    ? { ...state, ...parsed.data, hydrated: true }
+  let snapshot: WorkspaceSnapshot | undefined
+  try { snapshot = parseWorkspaceSnapshot(saved) } catch { /* Start from a fresh workspace when persisted data is invalid. */ }
+  state = snapshot
+    ? { ...state, ...snapshot, hydrated: true }
     : { ...state, hydrated: true }
   emit()
-  if (parsed.success) {
-    void Promise.all(parsed.data.imageAssets.filter((asset) => asset.kind === 'local').map(async (asset) => {
+  if (snapshot) {
+    void Promise.all(snapshot.imageAssets.filter((asset) => asset.kind === 'local').map(async (asset) => {
       const blob = await loadAsset(asset.id)
       return blob ? [asset.id, URL.createObjectURL(blob)] as const : null
     })).then((entries) => {
@@ -413,9 +368,7 @@ export const workspaceActions = {
     update((current) => ({ ...current, templates: [...current.templates, ...blocks.map((block) => ({ ...block, id: crypto.randomUUID(), createdAt: Date.now() }))] }))
   },
   replaceSnapshot(snapshot: WorkspaceSnapshot) {
-    const parsed = snapshotSchema.safeParse(snapshot)
-    if (!parsed.success) throw new Error('This workspace file is not valid or uses an unsupported version.')
-    update((current) => ({ ...current, ...parsed.data }))
+    update((current) => ({ ...current, ...parseWorkspaceSnapshot(snapshot, 'This workspace file is not valid or uses an unsupported version.') }))
   },
   async resetAllData() {
     clearTimeout(saveTimer)

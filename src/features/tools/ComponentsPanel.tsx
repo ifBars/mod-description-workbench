@@ -6,7 +6,8 @@ import type { EditorSelection } from '../editor/editorCommands'
 import { renderBBCode } from '../../markup/bbcode'
 import { normalizeForNexus } from '../../markup/convert'
 import { useWorkspaceStore, workspaceActions } from '../../state/workspaceStore'
-import { downloadLibrary, readLibraryFile } from '../../storage/library'
+import { LIBRARY_FILTERS, readLibraryFile, saveLibrary } from '../../storage/library'
+import { filePlatform } from '../../platform/files'
 
 interface ComponentsPanelProps {
   mode: AuthoringMode
@@ -54,7 +55,6 @@ export function ComponentsPanel({ mode, documentContent, documentId, selection, 
   const [componentValues, setComponentValues] = useState<Record<string, string | boolean>>({})
   const [notice, setNotice] = useState('')
   const sourceInput = useRef<HTMLTextAreaElement>(null)
-  const componentInput = useRef<HTMLInputElement>(null)
   const selectedComponent = state.components.find((component) => component.id === selectedComponentId)
   const documentInstances = state.componentInstances.filter((instance) => instance.documentId === documentId)
   const draftDefinition: ComponentDefinition = { id: editingId ?? 'component-draft', name: draftName, mode, content: draftSource, variables: draftVariables, createdAt: 0 }
@@ -125,14 +125,22 @@ export function ComponentsPanel({ mode, documentContent, documentId, selection, 
     onInsert(`\n\n${renderedContent}\n\n`)
     workspaceActions.linkComponentInstance({ definitionId: definition.id, documentId, values: componentValues, mode, renderedContent })
   }
-  const importComponents = async (file?: File) => {
-    if (!file) return
+  const importComponents = async () => {
     try {
-      const blocks = await readLibraryFile(file, 'components')
+      const selection = await (await filePlatform()).chooseFile({ filters: LIBRARY_FILTERS })
+      if (selection.cancelled) return
+      const blocks = await readLibraryFile(selection.file, 'components')
       workspaceActions.importComponents(blocks)
       setNotice(`Imported ${blocks.length} component${blocks.length === 1 ? '' : 's'}.`)
       setView('saved')
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not import components.') }
+  }
+  const exportComponents = async () => {
+    try {
+      const result = await saveLibrary('components', state.components)
+      if (result.cancelled) return
+      setNotice('Components exported.')
+    } catch { setNotice('Could not export components.') }
   }
 
   return <section className="components-panel">
@@ -182,7 +190,7 @@ export function ComponentsPanel({ mode, documentContent, documentId, selection, 
     </>}
 
     {view === 'saved' && <>
-      <div className="component-library-actions"><button className="button secondary" disabled={state.components.length === 0} onClick={() => downloadLibrary('components', state.components)}><Download />Export</button><button className="button secondary" onClick={() => componentInput.current?.click()}><Upload />Import</button><button className="button quiet" onClick={() => resetDraft(selection.hasSelection ? selection.content : '')}><Plus />New</button><input ref={componentInput} hidden type="file" accept="application/json,.json" onChange={(event) => void importComponents(event.target.files?.[0])} /></div>
+      <div className="component-library-actions"><button className="button secondary" disabled={state.components.length === 0} onClick={() => void exportComponents()}><Download />Export</button><button className="button secondary" onClick={() => void importComponents()}><Upload />Import</button><button className="button quiet" onClick={() => resetDraft(selection.hasSelection ? selection.content : '')}><Plus />New</button></div>
       {state.components.length === 0 && <div className="component-empty-preview"><strong>No saved components yet.</strong><span>Create one from selected text or start from blank source.</span></div>}
       <div className="component-library">{state.components.map((definition) => <div className={`component-library-entry ${selectedComponentId === definition.id ? 'active' : ''}`} key={definition.id}><button onClick={() => chooseComponent(definition)}><Boxes /><span><strong>{definition.name}</strong><small>{definition.variables?.length ?? 0} variable{(definition.variables?.length ?? 0) === 1 ? '' : 's'} · {definition.mode.toUpperCase()}</small></span></button><button className="icon-button subtle" aria-label={`Edit component ${definition.name}`} onClick={() => editDefinition(definition)}><Pencil /></button><button className="icon-button subtle" aria-label={`Delete component ${definition.name}`} onClick={() => { workspaceActions.deleteComponent(definition.id); if (selectedComponentId === definition.id) setSelectedComponentId(null) }}><Trash2 /></button></div>)}</div>
       {selectedComponent && <div className="component-config">
