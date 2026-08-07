@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ComponentDefinition, ReusableBlock } from '../domain/types'
+import { filePlatform, type SaveFileRequest, type SelectedFile } from '../platform/files'
 
 export type LibraryKind = 'components' | 'templates'
 
@@ -16,19 +17,30 @@ export function createLibraryFile(kind: LibraryKind, items: ReusableBlock[]) {
   return JSON.stringify({ schemaVersion: 1, kind, items: items.map((item) => ({ name: item.name, mode: item.mode, content: item.content, ...(kind === 'components' ? { variables: (item as ComponentDefinition).variables ?? [] } : {}) })) }, null, 2)
 }
 
-export async function readLibraryFile(file: File, expectedKind: LibraryKind) {
+async function selectedFile(file: SelectedFile | File): Promise<SelectedFile> {
+  if (file instanceof File) return { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) }
+  return file
+}
+
+export const LIBRARY_FILTERS = [{ name: 'Mod Description Library', extensions: ['json'] }]
+
+export async function readLibraryFile(input: SelectedFile | File, expectedKind: LibraryKind) {
   let value: unknown
-  try { value = JSON.parse(await file.text()) } catch { throw new Error(`This is not a valid ${expectedKind} library.`) }
+  try { value = JSON.parse(new TextDecoder().decode((await selectedFile(input)).bytes)) } catch { throw new Error(`This is not a valid ${expectedKind} library.`) }
   const parsed = librarySchema.safeParse(value)
   if (!parsed.success || parsed.data.kind !== expectedKind) throw new Error(`This is not a valid ${expectedKind} library.`)
   return parsed.data.items
 }
 
-export function downloadLibrary(kind: LibraryKind, items: ReusableBlock[]) {
-  const url = URL.createObjectURL(new Blob([createLibraryFile(kind, items)], { type: 'application/json' }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = `mod-description-${kind}.mdw-${kind}.json`
-  anchor.click()
-  URL.revokeObjectURL(url)
+export function createLibraryExport(kind: LibraryKind, items: ReusableBlock[]): SaveFileRequest {
+  return {
+    filename: `mod-description-${kind}.mdw-${kind}.json`,
+    mimeType: 'application/json;charset=utf-8',
+    bytes: new TextEncoder().encode(createLibraryFile(kind, items)),
+    filters: LIBRARY_FILTERS,
+  }
+}
+
+export async function saveLibrary(kind: LibraryKind, items: ReusableBlock[]) {
+  return (await filePlatform()).saveFile(createLibraryExport(kind, items))
 }

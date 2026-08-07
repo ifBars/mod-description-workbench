@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react'
-import { z } from 'zod'
 import { createDefaultSnapshot, createDocument } from '../domain/defaults'
 import { createCustomTheme } from '../domain/themes'
 import type { AuthoringMode, AuthoringToolTab, ComponentDefinition, ComponentVariable, CustomTheme, ImageAsset, PreviewDevice, ReusableBlock, ThemeMode, WorkspaceLayout, WorkspacePreferences, WorkspaceSnapshot } from '../domain/types'
@@ -7,6 +6,7 @@ import { clearAllData, deleteAsset, loadAsset, loadWorkspace, saveAsset, saveChe
 import { convertContent, normalizeForNexus } from '../markup/convert'
 import { imageUsageCount, validateLocalImage } from '../domain/images'
 import { componentUpdate } from '../domain/components'
+import { parseWorkspaceSnapshot } from '../storage/workspaceSnapshot'
 
 type SaveState = 'saved' | 'saving' | 'error'
 type Screen = 'workspace' | 'settings'
@@ -14,6 +14,7 @@ type Screen = 'workspace' | 'settings'
 interface WorkspaceState extends WorkspaceSnapshot {
   hydrated: boolean
   saveState: SaveState
+  saveError: string | undefined
   screen: Screen
   toolsOpen: boolean
   toolTab: AuthoringToolTab
@@ -21,56 +22,11 @@ interface WorkspaceState extends WorkspaceSnapshot {
   assetObjectUrls: Record<string, string>
 }
 
-const snapshotSchema = z.object({
-  schemaVersion: z.literal(1),
-  documents: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    mode: z.enum(['markdown', 'bbcode']),
-    content: z.string(),
-    sources: z.object({ markdown: z.string().optional(), bbcode: z.string().optional() }).optional(),
-    nexusContent: z.string().optional(),
-    createdAt: z.number(),
-    updatedAt: z.number(),
-  })).min(1),
-  activeDocumentId: z.string(),
-  preferences: z.object({
-    theme: z.enum(['system', 'dark', 'light']),
-    customThemeId: z.string().nullable(),
-    layout: z.enum(['split', 'write', 'preview']),
-    splitRatio: z.number().min(35).max(70).default(54),
-    previewDevice: z.enum(['desktop', 'mobile']),
-    previewZoom: z.number(),
-    editorFontSize: z.number(),
-    wordWrap: z.boolean(),
-    reducedMotion: z.boolean(),
-    autosaveDelayMs: z.number().min(100).max(5000).default(250),
-    recoveryEnabled: z.boolean().default(true),
-    checkpointDelayMs: z.number().min(1000).max(60000).default(1500),
-    checkpointRetention: z.number().int().min(5).max(100).default(50),
-  }),
-  customThemes: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    dark: z.boolean(),
-    tokens: z.object({
-      canvas: z.string(), surfaceLow: z.string(), surfaceRaised: z.string(), border: z.string(),
-      text: z.string(), muted: z.string(), accent: z.string(), accentHover: z.string(), focus: z.string(),
-    }),
-  })),
-  imageAssets: z.array(z.object({ id: z.string(), name: z.string(), kind: z.enum(['remote', 'local']), url: z.string().nullable(), mimeType: z.string(), size: z.number(), width: z.number().optional(), height: z.number().optional(), createdAt: z.number() })).default([]),
-  components: z.array(z.object({
-    id: z.string(), name: z.string(), mode: z.enum(['markdown', 'bbcode']), content: z.string(), createdAt: z.number(),
-    variables: z.array(z.object({ id: z.string(), name: z.string(), type: z.enum(['text', 'color', 'url', 'image', 'choice', 'boolean']), defaultValue: z.union([z.string(), z.boolean()]), options: z.array(z.string()).optional() })).default([]),
-  })).default([]),
-  componentInstances: z.array(z.object({ id: z.string(), definitionId: z.string(), documentId: z.string(), values: z.record(z.string(), z.union([z.string(), z.boolean()])), mode: z.enum(['markdown', 'bbcode']), renderedContent: z.string(), createdAt: z.number(), updatedAt: z.number() })).default([]),
-  templates: z.array(z.object({ id: z.string(), name: z.string(), mode: z.enum(['markdown', 'bbcode']), content: z.string(), createdAt: z.number() })).default([]),
-})
-
 let state: WorkspaceState = {
   ...createDefaultSnapshot(),
   hydrated: false,
   saveState: 'saved',
+  saveError: undefined,
   screen: 'workspace',
   toolsOpen: false,
   toolTab: 'images',
@@ -80,6 +36,9 @@ let state: WorkspaceState = {
 const listeners = new Set<() => void>()
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 let checkpointTimer: ReturnType<typeof setTimeout> | undefined
+let queuedWorkspaceWrite: Promise<void> = Promise.resolve()
+let saveVersion = 0
+let saveErrorSource: 'workspace' | 'checkpoint' | undefined
 
 function emit() {
   listeners.forEach((listener) => listener())
@@ -99,19 +58,39 @@ function serializableSnapshot(): WorkspaceSnapshot {
   }
 }
 
-function scheduleSave(checkpoint = false) {
+function setSaveError(message: string, source: 'workspace' | 'checkpoint' = 'workspace') {
+  saveErrorSource = source
+  state = { ...state, saveState: 'error', saveError: message }
+  emit()
+}
+
+function persistWorkspace(snapshot: WorkspaceSnapshot) {
+  const version = ++saveVersion
   state = { ...state, saveState: 'saving' }
   emit()
+  const write = queuedWorkspaceWrite.then(() => saveWorkspace(snapshot))
+  queuedWorkspaceWrite = write.catch(() => undefined)
+  return write.then(() => {
+    if (version !== saveVersion) return
+    if (saveErrorSource === 'checkpoint') return
+    saveErrorSource = undefined
+    state = { ...state, saveState: 'saved', saveError: undefined }
+    emit()
+  }).catch((error) => {
+    if (version === saveVersion) setSaveError('Could not save locally. Try again.')
+    throw error
+  })
+}
+
+function scheduleSave(checkpoint = false) {
+  if (saveErrorSource !== 'checkpoint') {
+    state = { ...state, saveState: 'saving', saveError: undefined }
+    emit()
+  }
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    const snapshot = serializableSnapshot()
-    void saveWorkspace(snapshot).then(() => {
-      state = { ...state, saveState: 'saved' }
-      emit()
-    }).catch(() => {
-      state = { ...state, saveState: 'error' }
-      emit()
-    })
+    saveTimer = undefined
+    void persistWorkspace(serializableSnapshot()).catch(() => undefined)
   }, state.preferences.autosaveDelayMs)
 
   if (!state.preferences.recoveryEnabled) {
@@ -119,11 +98,17 @@ function scheduleSave(checkpoint = false) {
   } else if (checkpoint) {
     clearTimeout(checkpointTimer)
     checkpointTimer = setTimeout(() => {
+      checkpointTimer = undefined
       const document = getActiveDocument()
       void saveCheckpoint({
         id: crypto.randomUUID(), documentId: document.id, content: document.content,
         mode: document.mode, createdAt: Date.now(),
-      }, state.preferences.checkpointRetention)
+      }, state.preferences.checkpointRetention).then(() => {
+        if (saveErrorSource !== 'checkpoint') return
+        saveErrorSource = undefined
+        state = { ...state, saveState: 'saved', saveError: undefined }
+        emit()
+      }).catch(() => setSaveError('Could not save locally. Try again.', 'checkpoint'))
     }, state.preferences.checkpointDelayMs)
   }
 }
@@ -172,14 +157,15 @@ async function localImageDimensions(file: File) {
   })
 }
 
-void loadWorkspace().then((saved) => {
-  const parsed = snapshotSchema.safeParse(saved)
-  state = parsed.success
-    ? { ...state, ...parsed.data, hydrated: true }
+const hydration = loadWorkspace().then((saved) => {
+  let snapshot: WorkspaceSnapshot | undefined
+  try { snapshot = parseWorkspaceSnapshot(saved) } catch { /* Start from a fresh workspace when persisted data is invalid. */ }
+  state = snapshot
+    ? { ...state, ...snapshot, hydrated: true }
     : { ...state, hydrated: true }
   emit()
-  if (parsed.success) {
-    void Promise.all(parsed.data.imageAssets.filter((asset) => asset.kind === 'local').map(async (asset) => {
+  if (snapshot) {
+    void Promise.all(snapshot.imageAssets.filter((asset) => asset.kind === 'local').map(async (asset) => {
       const blob = await loadAsset(asset.id)
       return blob ? [asset.id, URL.createObjectURL(blob)] as const : null
     })).then((entries) => {
@@ -188,7 +174,7 @@ void loadWorkspace().then((saved) => {
     })
   }
 }).catch(() => {
-  state = { ...state, hydrated: true, saveState: 'error' }
+  state = { ...state, hydrated: true, saveState: 'error', saveError: 'Could not load local workspace data.' }
   emit()
 })
 
@@ -413,18 +399,40 @@ export const workspaceActions = {
     update((current) => ({ ...current, templates: [...current.templates, ...blocks.map((block) => ({ ...block, id: crypto.randomUUID(), createdAt: Date.now() }))] }))
   },
   replaceSnapshot(snapshot: WorkspaceSnapshot) {
-    const parsed = snapshotSchema.safeParse(snapshot)
-    if (!parsed.success) throw new Error('This workspace file is not valid or uses an unsupported version.')
-    update((current) => ({ ...current, ...parsed.data }))
+    update((current) => ({ ...current, ...parseWorkspaceSnapshot(snapshot, 'This workspace file is not valid or uses an unsupported version.') }))
+  },
+  async flushPersistence() {
+    await hydration
+    clearTimeout(saveTimer)
+    saveTimer = undefined
+    const checkpointPending = checkpointTimer !== undefined
+    clearTimeout(checkpointTimer)
+    checkpointTimer = undefined
+    await persistWorkspace(serializableSnapshot())
+    if (checkpointPending && state.preferences.recoveryEnabled) {
+      const document = getActiveDocument()
+      await saveCheckpoint({ id: crypto.randomUUID(), documentId: document.id, content: document.content, mode: document.mode, createdAt: Date.now() }, state.preferences.checkpointRetention)
+    }
+  },
+  reportCloseFlushFailure() {
+    setSaveError('Could not save before closing. Please try again.')
+  },
+  reportDesktopLifecycleFailure() {
+    setSaveError('Desktop close protection could not start. Save before closing.')
   },
   async resetAllData() {
     clearTimeout(saveTimer)
     clearTimeout(checkpointTimer)
     Object.values(state.assetObjectUrls).forEach((url) => URL.revokeObjectURL(url))
-    await clearAllData()
     const snapshot = createDefaultSnapshot()
-    await saveWorkspace(snapshot)
-    state = { ...state, ...snapshot, hydrated: true, saveState: 'saved', screen: 'settings', toolsOpen: false, documentsOpen: false, assetObjectUrls: {} }
+    const reset = queuedWorkspaceWrite.then(async () => {
+      await clearAllData()
+      await saveWorkspace(snapshot)
+    })
+    queuedWorkspaceWrite = reset.catch(() => undefined)
+    await reset
+    saveErrorSource = undefined
+    state = { ...state, ...snapshot, hydrated: true, saveState: 'saved', saveError: undefined, screen: 'settings', toolsOpen: false, documentsOpen: false, assetObjectUrls: {} }
     emit()
   },
 }
