@@ -33,6 +33,18 @@ test.describe('WCAG smoke coverage', () => {
     }
   })
 
+  test('browser settings never expose or contact the desktop updater', async ({ page }) => {
+    const requestedUrls: string[] = []
+    page.on('request', (request) => requestedUrls.push(request.url()))
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Settings', exact: true }).last().click()
+
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Desktop updates' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Check for updates' })).toHaveCount(0)
+    expect(requestedUrls.some((url) => url.includes('releases/latest/download/latest.json'))).toBe(false)
+  })
+
   test('visual authoring and every overlay have no automated WCAG A/AA violations', async ({ page, isMobile }) => {
     await page.goto('/')
     if (isMobile) await page.locator('.mobile-mode-select select').selectOption('visual')

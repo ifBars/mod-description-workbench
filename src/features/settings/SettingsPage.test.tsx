@@ -29,6 +29,13 @@ describe('SettingsPage', () => {
     expect(screen.getByText('BBCode autocomplete')).toBeInTheDocument()
   })
 
+  it('does not expose desktop updater controls in the browser runtime', () => {
+    render(<SettingsPage />)
+
+    expect(screen.queryByRole('button', { name: 'Desktop updates' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Check for updates' })).not.toBeInTheDocument()
+  })
+
   it('requires explicit confirmation before resetting all local data', async () => {
     const reset = vi.spyOn(workspaceActions, 'resetAllData').mockResolvedValue()
     render(<SettingsPage />)

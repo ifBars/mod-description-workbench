@@ -152,6 +152,8 @@ bun run desktop:dev
 Build a local desktop bundle with `bun run desktop:build`. `bun run desktop:check` performs the Rust shell check without bundling.
 On Windows, the desktop commands load an installed Visual Studio C++ developer environment before invoking Tauri.
 
+Desktop update checks are available only in signed release builds and always require an explicit download and restart choice. See [desktop release notes](docs/DESKTOP_RELEASES.md) for maintainer prerequisites; the browser app never checks for desktop updates.
+
 ## Tests
 
 The project has unit, component, persistence, parser, conversion, accessibility, desktop, and mobile coverage.

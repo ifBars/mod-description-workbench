@@ -7,6 +7,8 @@ coverage/
 *.local
 .env*
 !.env.example
+src-tauri/.tauri-updater.generated.conf.json
+src-tauri/capabilities/.updater.generated.json
 *.mdw
 *.mdw-theme.json
 *.mdw-components.json

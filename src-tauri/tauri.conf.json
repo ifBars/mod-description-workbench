@@ -32,6 +32,14 @@
     "publisher": "ifBars",
     "shortDescription": "A local-first editor and previewer for mod descriptions.",
     "longDescription": "Write mod descriptions locally, preview their Nexus-style presentation, then copy the finished BBCode for manual publishing.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

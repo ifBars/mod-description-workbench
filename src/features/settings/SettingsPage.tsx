@@ -4,8 +4,10 @@ import { DEFAULT_PREFERENCES } from '../../domain/defaults'
 import type { AuthoringToolTab, CustomTheme, WorkspacePreferences } from '../../domain/types'
 import { getWorkspaceSnapshot, useWorkspaceStore, workspaceActions } from '../../state/workspaceStore'
 import { filePlatform } from '../../platform/files'
+import { platformRuntime } from '../../platform/runtime'
 import { WORKSPACE_IMPORT_FILTERS, readWorkspaceBundle, saveWorkspaceBundle } from '../../storage/bundle'
 import { THEME_FILTERS, readThemeFile, saveTheme } from '../../storage/themeFile'
+import { DesktopUpdatesSection } from './DesktopUpdatesSection'
 
 export function SettingsPage() {
   const [category, setCategory] = useState('appearance')
@@ -15,16 +17,18 @@ export function SettingsPage() {
   const state = useWorkspaceStore()
   const preferences = state.preferences
   const customTheme = state.customThemes.find((candidate) => candidate.id === state.preferences.customThemeId)
+  const isDesktop = platformRuntime() === 'tauri'
   const categories = [
     ['appearance', Palette, 'Appearance'], ['editor', Code2, 'Editor'], ['preview', MonitorCog, 'Preview'],
     ['recovery', HardDrive, 'Autosave & recovery'], ['images', Image, 'Images'], ['libraries', Boxes, 'Templates & components'],
     ['accessibility', Accessibility, 'Accessibility'], ['keyboard', Keyboard, 'Keyboard'], ['privacy', ShieldCheck, 'Privacy & data'],
+    ...(isDesktop ? [['desktop', Download, 'Desktop updates'] as const] : []),
   ] as const
   const searchTerms: Record<string, string> = {
     appearance: 'theme light dark custom colour color import export tokens', editor: 'font size wrap source markdown bbcode visual',
     preview: 'nexus mobile desktop zoom device', recovery: 'autosave checkpoint crash draft restore retention', images: 'image local remote blob usage replace cleanup',
     libraries: 'template component reusable import export portable', accessibility: 'motion animation comfort contrast screen reader', keyboard: 'shortcut hotkey autocomplete find bold undo redo indent search',
-    privacy: 'local indexeddb workspace backup import export data analytics server reset delete',
+    privacy: 'local indexeddb workspace backup import export data analytics server reset delete', desktop: 'desktop signed update github release download install restart version',
   }
   const localImageBytes = state.imageAssets.filter((asset) => asset.kind === 'local').reduce((total, asset) => total + asset.size, 0)
 
@@ -97,6 +101,7 @@ export function SettingsPage() {
           {category === 'accessibility' && <><SettingsHeading eyebrow="Comfort" title="Accessibility">Keyboard-visible controls, semantic landmarks, and reduced motion are first-class.</SettingsHeading><div className="settings-section"><SwitchRow title="Reduce motion" description="Remove drawer and mode transitions" checked={preferences.reducedMotion} onChange={(reducedMotion) => workspaceActions.updatePreferences({ reducedMotion })} /></div><CategoryReset label="accessibility" onClick={() => workspaceActions.updatePreferences({ reducedMotion: DEFAULT_PREFERENCES.reducedMotion })} /></>}
           {category === 'keyboard' && <><SettingsHeading eyebrow="Reference" title="Keyboard">Shortcuts available while the source editor is focused.</SettingsHeading><div className="settings-section shortcut-list"><Shortcut label="Bold" keys={['Ctrl', 'B']} /><Shortcut label="Undo" keys={['Ctrl', 'Z']} /><Shortcut label="Redo" keys={['Ctrl', 'Y']} /><Shortcut label="Find" keys={['Ctrl', 'F']} /><Shortcut label="Find next" keys={['Ctrl', 'G']} /><Shortcut label="Find previous" keys={['Ctrl', 'Shift', 'G']} /><Shortcut label="Select all" keys={['Ctrl', 'A']} /><Shortcut label="Indent line or selection" keys={['Tab']} /><Shortcut label="Outdent line or selection" keys={['Shift', 'Tab']} /><Shortcut label="BBCode autocomplete" keys={['Ctrl', 'Space']} /></div></>}
           {category === 'privacy' && <><SettingsHeading eyebrow="Local first" title="Privacy & data">No account, analytics, publishing connection, or application server.</SettingsHeading><div className="settings-section"><div className="privacy-callout"><ShieldCheck /><span><strong>Your drafts stay on this device.</strong><small>Workspace data uses IndexedDB. Network requests only occur for assets you explicitly preview by URL.</small></span></div><div className="button-row"><button className="button secondary" onClick={() => void exportWorkspace()}><Download />Export workspace</button><button className="button secondary" onClick={() => void importWorkspace()}><Upload />Import workspace</button></div></div><div className="settings-section danger-zone"><h3>Reset local data</h3><p className="section-copy">Removes drafts, checkpoints, local images, custom themes, templates, components, and preferences from this browser, then creates a fresh starter document.</p><button className="button danger" aria-haspopup="dialog" onClick={() => setResetDataDialogOpen(true)}><Trash2 />Reset all local data</button></div></>}
+          {category === 'desktop' && isDesktop && <DesktopUpdatesSection />}
         </section>
         <aside className="settings-preview"><span className="eyebrow">Live preview</span><div className="mini-workbench"><div className="mini-header"><i />Mod Description Workbench</div><div className="mini-body"><span /><span /><span className="accent" /><span /></div></div><p>Changes apply immediately and save locally.</p></aside>
       </div>
