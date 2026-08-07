@@ -138,6 +138,18 @@ Create a production build with:
 bun run build
 ```
 
+## Desktop development
+
+The optional desktop shell runs the same local-first web app in a native window; it does not add a backend or change where drafts are stored.
+
+```powershell
+bun install
+bun run desktop:dev
+```
+
+Build a local desktop bundle with `bun run desktop:build`. `bun run desktop:check` performs the Rust shell check without bundling.
+On Windows, the desktop commands load an installed Visual Studio C++ developer environment before invoking Tauri.
+
 ## Tests
 
 The project has unit, component, persistence, parser, conversion, accessibility, desktop, and mobile coverage.

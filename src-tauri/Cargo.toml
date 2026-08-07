@@ -1,0 +1,16 @@
+[package]
+name = "mod-description-workbench"
+version = "0.1.0"
+description = "A local-first editor and Nexus Mods previewer for mod descriptions."
+authors = ["ifBars"]
+edition = "2021"
+
+[lib]
+name = "mod_description_workbench_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+tauri = { version = "2.11.5", features = [] }
