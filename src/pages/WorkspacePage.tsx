@@ -155,7 +155,7 @@ export function WorkspacePage() {
         </main>
       </div>
 
-      <footer className="status-bar"><span>{document.content.length.toLocaleString()} characters</span><span>{document.content.trim() ? document.content.trim().split(/\s+/).length.toLocaleString() : 0} words</span><span className="status-spacer" /><span className={`save-status ${state.saveState}`}><Check />{state.saveState === 'saved' ? 'Saved locally' : state.saveState === 'saving' ? 'Saving…' : 'Save failed'}</span></footer>
+      <footer className="status-bar"><span>{document.content.length.toLocaleString()} characters</span><span>{document.content.trim() ? document.content.trim().split(/\s+/).length.toLocaleString() : 0} words</span><span className="status-spacer" /><span className={`save-status ${state.saveState}`} role={state.saveState === 'error' ? 'alert' : undefined}><Check />{state.saveState === 'saved' ? 'Saved locally' : state.saveState === 'saving' ? 'Saving…' : state.saveError ?? 'Save failed'}</span></footer>
       <nav className="mobile-bottom-nav"><button onClick={openDocuments}><FileText />Documents</button><button onClick={toggleMobilePreview}><PanelRight />{state.preferences.layout === 'preview' ? 'Write' : 'Preview'}</button><button onClick={() => openTools()}><SlidersHorizontal />Tools</button><button onClick={toggleExport}><Download />Export</button></nav>
 
       {(state.documentsOpen || state.toolsOpen) && <button className="drawer-backdrop" aria-label="Close panel" onClick={() => { if (state.documentsOpen) closeDocuments(); if (state.toolsOpen) closeTools() }} />}

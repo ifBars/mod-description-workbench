@@ -1,10 +1,19 @@
 import { createDefaultSnapshot } from '../domain/defaults'
+import { loadWorkspace } from '../storage/database'
 import { getWorkspaceSnapshot, workspaceActions } from './workspaceStore'
 
 describe.sequential('workspace state transitions', () => {
   it('starts with a valid active document', () => {
     const snapshot = getWorkspaceSnapshot()
     expect(snapshot.documents.some((document) => document.id === snapshot.activeDocumentId)).toBe(true)
+  })
+
+  it('flushes the latest pending snapshot before a desktop close', async () => {
+    const snapshot = createDefaultSnapshot()
+    workspaceActions.replaceSnapshot(snapshot)
+    workspaceActions.updateContent('Persist this before closing.')
+    await workspaceActions.flushPersistence()
+    await expect(loadWorkspace()).resolves.toMatchObject({ documents: [expect.objectContaining({ content: 'Persist this before closing.' })] })
   })
 
   it('creates and selects a new document atomically', () => {

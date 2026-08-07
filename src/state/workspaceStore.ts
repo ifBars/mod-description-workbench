@@ -14,6 +14,7 @@ type Screen = 'workspace' | 'settings'
 interface WorkspaceState extends WorkspaceSnapshot {
   hydrated: boolean
   saveState: SaveState
+  saveError: string | undefined
   screen: Screen
   toolsOpen: boolean
   toolTab: AuthoringToolTab
@@ -25,6 +26,7 @@ let state: WorkspaceState = {
   ...createDefaultSnapshot(),
   hydrated: false,
   saveState: 'saved',
+  saveError: undefined,
   screen: 'workspace',
   toolsOpen: false,
   toolTab: 'images',
@@ -34,6 +36,8 @@ let state: WorkspaceState = {
 const listeners = new Set<() => void>()
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 let checkpointTimer: ReturnType<typeof setTimeout> | undefined
+let queuedWorkspaceWrite: Promise<void> = Promise.resolve()
+let saveVersion = 0
 
 function emit() {
   listeners.forEach((listener) => listener())
@@ -53,19 +57,34 @@ function serializableSnapshot(): WorkspaceSnapshot {
   }
 }
 
-function scheduleSave(checkpoint = false) {
+function setSaveError(message: string) {
+  state = { ...state, saveState: 'error', saveError: message }
+  emit()
+}
+
+function persistWorkspace(snapshot: WorkspaceSnapshot) {
+  const version = ++saveVersion
   state = { ...state, saveState: 'saving' }
+  emit()
+  const write = queuedWorkspaceWrite.then(() => saveWorkspace(snapshot))
+  queuedWorkspaceWrite = write.catch(() => undefined)
+  return write.then(() => {
+    if (version !== saveVersion) return
+    state = { ...state, saveState: 'saved', saveError: undefined }
+    emit()
+  }).catch((error) => {
+    if (version === saveVersion) setSaveError('Could not save locally. Try again.')
+    throw error
+  })
+}
+
+function scheduleSave(checkpoint = false) {
+  state = { ...state, saveState: 'saving', saveError: undefined }
   emit()
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    const snapshot = serializableSnapshot()
-    void saveWorkspace(snapshot).then(() => {
-      state = { ...state, saveState: 'saved' }
-      emit()
-    }).catch(() => {
-      state = { ...state, saveState: 'error' }
-      emit()
-    })
+    saveTimer = undefined
+    void persistWorkspace(serializableSnapshot()).catch(() => undefined)
   }, state.preferences.autosaveDelayMs)
 
   if (!state.preferences.recoveryEnabled) {
@@ -73,11 +92,12 @@ function scheduleSave(checkpoint = false) {
   } else if (checkpoint) {
     clearTimeout(checkpointTimer)
     checkpointTimer = setTimeout(() => {
+      checkpointTimer = undefined
       const document = getActiveDocument()
       void saveCheckpoint({
         id: crypto.randomUUID(), documentId: document.id, content: document.content,
         mode: document.mode, createdAt: Date.now(),
-      }, state.preferences.checkpointRetention)
+      }, state.preferences.checkpointRetention).catch(() => setSaveError('Could not save locally. Try again.'))
     }, state.preferences.checkpointDelayMs)
   }
 }
@@ -126,7 +146,7 @@ async function localImageDimensions(file: File) {
   })
 }
 
-void loadWorkspace().then((saved) => {
+const hydration = loadWorkspace().then((saved) => {
   let snapshot: WorkspaceSnapshot | undefined
   try { snapshot = parseWorkspaceSnapshot(saved) } catch { /* Start from a fresh workspace when persisted data is invalid. */ }
   state = snapshot
@@ -143,7 +163,7 @@ void loadWorkspace().then((saved) => {
     })
   }
 }).catch(() => {
-  state = { ...state, hydrated: true, saveState: 'error' }
+  state = { ...state, hydrated: true, saveState: 'error', saveError: 'Could not load local workspace data.' }
   emit()
 })
 
@@ -370,6 +390,25 @@ export const workspaceActions = {
   replaceSnapshot(snapshot: WorkspaceSnapshot) {
     update((current) => ({ ...current, ...parseWorkspaceSnapshot(snapshot, 'This workspace file is not valid or uses an unsupported version.') }))
   },
+  async flushPersistence() {
+    await hydration
+    clearTimeout(saveTimer)
+    saveTimer = undefined
+    const checkpointPending = checkpointTimer !== undefined
+    clearTimeout(checkpointTimer)
+    checkpointTimer = undefined
+    await persistWorkspace(serializableSnapshot())
+    if (checkpointPending && state.preferences.recoveryEnabled) {
+      const document = getActiveDocument()
+      await saveCheckpoint({ id: crypto.randomUUID(), documentId: document.id, content: document.content, mode: document.mode, createdAt: Date.now() }, state.preferences.checkpointRetention)
+    }
+  },
+  reportCloseFlushFailure() {
+    setSaveError('Could not save before closing. Please try again.')
+  },
+  reportDesktopLifecycleFailure() {
+    setSaveError('Desktop close protection could not start. Save before closing.')
+  },
   async resetAllData() {
     clearTimeout(saveTimer)
     clearTimeout(checkpointTimer)
@@ -377,7 +416,7 @@ export const workspaceActions = {
     await clearAllData()
     const snapshot = createDefaultSnapshot()
     await saveWorkspace(snapshot)
-    state = { ...state, ...snapshot, hydrated: true, saveState: 'saved', screen: 'settings', toolsOpen: false, documentsOpen: false, assetObjectUrls: {} }
+    state = { ...state, ...snapshot, hydrated: true, saveState: 'saved', saveError: undefined, screen: 'settings', toolsOpen: false, documentsOpen: false, assetObjectUrls: {} }
     emit()
   },
 }

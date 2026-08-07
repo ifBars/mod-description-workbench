@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { YouTubeEmbed } from './YouTubeEmbed'
+import { routeExternalLink } from '../platform/externalLinks'
 
 interface TagNode {
   type: 'tag'
@@ -188,7 +189,7 @@ function renderNode(node: BbNode, key: string, assetUrls: Record<string, string>
     case '*': return <li key={key}>{withoutBoundaryNewlines(node.children).map((child, index) => renderNode(child, `${key}-${index}`, assetUrls))}</li>
     case 'url': {
       const href = safeUrl(node.attribute ?? textContent(node.children))
-      return href ? <a key={key} href={href} target="_blank" rel="noreferrer">{children}</a> : <span key={key}>{children}</span>
+      return href ? <a key={key} href={href} target="_blank" rel="noreferrer" onClick={routeExternalLink}>{children}</a> : <span key={key}>{children}</span>
     }
     case 'img': case 'aimg': {
       const src = safeUrl(textContent(node.children), true, assetUrls)
@@ -201,7 +202,7 @@ function renderNode(node: BbNode, key: string, assetUrls: Record<string, string>
       return id ? <YouTubeEmbed id={id} key={key} /> : null
     }
     case 'video': case 'soundcloud': return <div className="embed-placeholder" key={key}>{node.name} embed · {textContent(node.children)}</div>
-    case 'twitter': return <a key={key} href={`https://twitter.com/${encodeURIComponent(textContent(node.children).replace(/^@/, ''))}`} target="_blank" rel="noreferrer">@{textContent(node.children).replace(/^@/, '')}</a>
+    case 'twitter': return <a key={key} href={`https://twitter.com/${encodeURIComponent(textContent(node.children).replace(/^@/, ''))}`} target="_blank" rel="noreferrer" onClick={routeExternalLink}>@{textContent(node.children).replace(/^@/, '')}</a>
     case 'line': return <hr key={key} />
     default: return <span key={key}>{children}</span>
   }

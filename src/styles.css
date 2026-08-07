@@ -39,6 +39,19 @@ svg { width: 16px; height: 16px; stroke-width: 1.7; }
 }
 
 .app-shell { height: 100%; display: grid; grid-template-rows: 56px minmax(0, 1fr) 25px; overflow: hidden; background: var(--canvas); color: var(--text); }
+.desktop-app { height: 100%; display: grid; grid-template-rows: 32px minmax(0, 1fr); background: var(--canvas); color: var(--text); }
+.desktop-content { min-height: 0; overflow: hidden; }
+.desktop-content > .settings-page { height: 100%; overflow: auto; }
+.desktop-titlebar { min-width: 0; display: flex; align-items: center; user-select: none; border-bottom: 1px solid var(--border); background: var(--surface-low); }
+.desktop-titlebar-app { height: 100%; display: inline-flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--muted); font-size: 11px; font-weight: 620; white-space: nowrap; }
+.desktop-titlebar .brand-mark { width: 18px; height: 18px; border-radius: 3px; font-size: 9px; }
+.desktop-titlebar-spacer { flex: 1; align-self: stretch; min-width: 24px; }
+.desktop-window-controls { align-self: stretch; display: flex; }
+.desktop-window-controls button { width: 42px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.desktop-window-controls button:hover { background: var(--surface-high); color: var(--text); transform: none; }
+.desktop-window-controls button:focus-visible { position: relative; z-index: 1; }
+.desktop-window-controls .desktop-close:hover { background: #c84747; color: #fff; }
+.desktop-window-controls svg { width: 14px; height: 14px; }
 .app-header { display: flex; align-items: center; min-width: 0; padding: 0 12px 0 0; gap: 12px; background: var(--surface-low); border-bottom: 1px solid var(--border); z-index: 20; }
 .brand { width: 46px; height: 100%; flex: 0 0 46px; display: inline-flex; align-items: center; justify-content: center; background: none; border: 0; border-right: 1px solid var(--border); font-weight: 590; padding: 0; white-space: nowrap; transition: background-color var(--motion-base) var(--ease-out); }
 .brand:hover { background: var(--surface); }
