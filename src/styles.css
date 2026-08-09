@@ -176,7 +176,6 @@ svg { width: 16px; height: 16px; stroke-width: 1.7; }
 
 .drawer-backdrop { position: fixed; inset: 56px 0 25px; z-index: 39; border: 0; background: var(--backdrop); animation: backdrop-enter var(--motion-base) var(--ease-out) both; }
 .side-drawer { position: fixed; z-index: 40; top: 56px; bottom: 25px; width: 420px; padding: 18px; background: var(--surface-low); box-shadow: 0 12px 35px rgb(0 0 0 / 35%); visibility: hidden; transition: transform var(--motion-slow) var(--ease-emphasized), visibility var(--motion-slow); overflow: auto; }
-[data-reduced-motion="true"] .side-drawer { transition: none; }
 .side-drawer.open { visibility: visible; transform: translateX(0); animation: drawer-enter var(--motion-slow) var(--ease-emphasized) both; }
 .documents-drawer { left: 46px; border-right: 1px solid var(--border); transform: translateX(-110%); }.tools-drawer { right: 0; border-left: 1px solid var(--border); transform: translateX(110%); }
 .drawer-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }.drawer-header h2 { margin: 2px 0 0; font-size: 21px; }
@@ -249,5 +248,14 @@ svg { width: 16px; height: 16px; stroke-width: 1.7; }
 @keyframes active-rail-enter { from { opacity: 0; transform: scaleY(.55); } to { opacity: 1; transform: scaleY(1); } }
 @keyframes tab-indicator-enter { from { opacity: 0; transform: scaleX(.55); } to { opacity: 1; transform: scaleX(1); } }
 .documents-drawer { --drawer-enter-offset: -18px; }.tools-drawer { --drawer-enter-offset: 18px; }
+
+[data-reduced-motion="true"],
+[data-reduced-motion="true"] *,
+[data-reduced-motion="true"] *::before,
+[data-reduced-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  transition: none !important;
+  animation: none !important;
+}
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }

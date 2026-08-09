@@ -67,14 +67,21 @@ test.describe('WCAG smoke coverage', () => {
     await expectNoWcagViolations(page)
   })
 
-  test('in-app reduced motion removes drawer transitions', async ({ page }) => {
+  test('in-app reduced motion removes animations and transitions throughout the app', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Settings', exact: true }).last().click()
     await page.getByRole('button', { name: 'Accessibility', exact: true }).click()
     await page.getByRole('checkbox', { name: /Reduce motion/ }).check()
+
+    const settingsHost = page.locator('.settings-host')
+    await expect(settingsHost).toHaveAttribute('data-reduced-motion', 'true')
+    expect(await page.getByRole('button', { name: 'Appearance', exact: true }).evaluate((element) => getComputedStyle(element).transitionDuration)).toBe('0s')
+
     await page.getByRole('button', { name: 'Back to editor' }).click()
-    await expect(page.locator('[data-reduced-motion="true"]')).toBeVisible()
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-reduced-motion', 'true')
     await page.getByRole('button', { name: 'Tools', exact: true }).last().click()
     expect(await page.locator('.tools-drawer').evaluate((element) => getComputedStyle(element).transitionDuration)).toBe('0s')
+    expect(await page.locator('.tools-drawer').evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+    expect(await page.locator('.drawer-backdrop').evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
   })
 })
