@@ -19,22 +19,32 @@ const installerPath = resolve(outputRoot, 'install-mcp.ps1')
 await mkdir(dirname(executablePath), { recursive: true })
 const serverPath = await buildMcpServer()
 
-const compiled = await Bun.build({
-  entrypoints: [resolve(mcpRoot, 'standalone.mjs')],
-  compile: {
-    target: 'bun-windows-x64-baseline',
-    outfile: executablePath,
-    windows: {
-      title: 'Nexus Description MCP',
-      publisher: 'ifBars',
-      version: packageJson.version,
-      description: 'Local Nexus Mods description authoring and preview MCP server',
-    },
-  },
-})
+let compiled: Awaited<ReturnType<typeof Bun.build>> | undefined
+for (let attempt = 1; attempt <= 3; attempt += 1) {
+  try {
+    compiled = await Bun.build({
+      entrypoints: [resolve(mcpRoot, 'standalone.mjs')],
+      compile: {
+        target: 'bun-windows-x64-baseline',
+        outfile: executablePath,
+        windows: {
+          title: 'Nexus Description MCP',
+          publisher: 'ifBars',
+          version: packageJson.version,
+          description: 'Local Nexus Mods description authoring and preview MCP server',
+        },
+      },
+    })
+    if (compiled.success) break
+  } catch (error) {
+    if (attempt === 3) throw error
+    console.warn(`Standalone compiler download failed (attempt ${attempt}/3); retrying.`)
+    await Bun.sleep(attempt * 1_000)
+  }
+}
 
-if (!compiled.success) {
-  throw new AggregateError(compiled.logs, 'Could not compile the standalone MCP executable')
+if (!compiled?.success) {
+  throw new AggregateError(compiled?.logs ?? [], 'Could not compile the standalone MCP executable')
 }
 
 const previewPath = resolve(root, 'dist-mcp', 'ui', 'dist', 'nexus-preview.html')

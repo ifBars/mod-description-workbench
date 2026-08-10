@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client'
 import packageJson from '../../../package.json'
 import type { PreviewDevice } from '../../../src/domain/types'
 import { NexusDescriptionSurface } from '../../../src/features/preview/NexusDescriptionSurface'
+import { copyText } from './clipboard'
 
 interface PreviewResult {
   bbcode?: string
@@ -23,7 +24,7 @@ let copyState = 'Copy BBCode'
 
 function copyBBCode() {
   if (!result.bbcode) return
-  void navigator.clipboard.writeText(result.bbcode).then(() => {
+  void copyText(result.bbcode).then(() => {
     copyState = 'Copied'
     render()
     window.setTimeout(() => {

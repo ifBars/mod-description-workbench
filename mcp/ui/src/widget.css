@@ -48,7 +48,7 @@ button { font: inherit; }
 .issues summary, .source summary { padding: 8px 13px; cursor: pointer; }
 .issues ul { margin: 0; padding: 0 30px 10px; }
 .source { border-top: 1px solid var(--widget-border); border-bottom: 0; }
-.source pre { max-height: 220px; margin: 0; overflow: auto; padding: 0 13px 13px; color: var(--widget-text); font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+.source pre { height: min(420px, 46vh); min-height: 300px; margin: 0; overflow: auto; padding: 4px 16px 16px; color: var(--widget-text); font: 12px/1.55 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
 .widget-stage { max-height: 620px; min-height: 260px; overflow: auto; padding: 14px; background-color: #151515; background-image: linear-gradient(#1d1d1d 1px, transparent 1px), linear-gradient(90deg, #1d1d1d 1px, transparent 1px); background-size: 20px 20px; }
 .widget-stage .nexus-surface { min-height: 420px; }
 .empty-preview { min-height: 260px; display: grid; place-items: center; color: #919198; font-size: 12px; }
@@ -58,6 +58,7 @@ button { font: inherit; }
   .widget-actions { width: 100%; overflow-x: auto; }
   .widget-actions > .primary { margin-left: auto; }
   .widget-stage { padding: 8px; }
+  .source pre { height: min(360px, 42vh); min-height: 260px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
