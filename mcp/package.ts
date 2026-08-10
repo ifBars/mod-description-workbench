@@ -25,7 +25,7 @@ for (let attempt = 1; attempt <= 3; attempt += 1) {
     compiled = await Bun.build({
       entrypoints: [resolve(mcpRoot, 'standalone.mjs')],
       compile: {
-        target: 'bun-windows-x64-baseline',
+        ...(process.platform === 'win32' ? {} : { target: 'bun-windows-x64' as const }),
         outfile: executablePath,
         windows: {
           title: 'Nexus Description MCP',
