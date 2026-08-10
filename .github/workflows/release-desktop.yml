@@ -30,6 +30,23 @@ jobs:
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test
+      - run: bun run mcp:package
+      - run: bun run mcp:smoke
+      - name: Smoke standalone MCP
+        shell: pwsh
+        run: bun run mcp:smoke -- --standalone ".artifacts/release/staging/nexus-description-mcp.exe"
+      - name: Smoke portable MCP
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          Expand-Archive -LiteralPath ".artifacts/release/Nexus.Description.MCP_${version}_portable.zip" -DestinationPath ".artifacts/portable-smoke"
+          bun run mcp:smoke -- --portable ".artifacts/portable-smoke/nexus-description-mcp/server.js"
+      - name: Smoke MCP installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          & ./scripts/install-mcp.ps1 -Version $version -AssetPath ".artifacts/release/Nexus.Description.MCP_${version}_windows-x64.zip" -ChecksumPath ".artifacts/release/SHA256SUMS.txt" -InstallRoot ".artifacts/install-smoke" -SkipCodexRegistration
+          bun run mcp:smoke -- --standalone ".artifacts/install-smoke/${version}/nexus-description-mcp.exe"
       - run: bun run desktop:release
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -41,7 +58,12 @@ jobs:
         run: |
           @'
           ## Desktop app
-          - Initial Windows desktop release with native file dialogs, lifecycle persistence, and restrained window chrome.
+          - Adds the native Nexus description MCP companion while preserving the local-first editor, desktop file dialogs, lifecycle persistence, and restrained window chrome.
+
+          ## MCP companion
+          - Build or convert Nexus Mods descriptions and inspect the same desktop/mobile preview directly inside MCP Apps-compatible Codex and Claude clients.
+          - Windows users can install the self-contained MCP without cloning the repository or installing Bun/Node. A small portable Node bundle is included for other platforms.
+          - Install for Codex from PowerShell: `irm https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex`
 
           ## Web compatibility
           - The GitHub Pages app remains browser-first and local-first; desktop update code does not run there.
@@ -50,7 +72,7 @@ jobs:
           - Updates use Tauri signatures and HTTPS release metadata. No account, telemetry, remote draft storage, or Nexus automation is included.
 
           ## Installation and updates
-          - Install either the NSIS setup executable or MSI. Future desktop updates require a newer signed release and your explicit confirmation. Windows publisher signing is not configured for this release.
+          - Install the desktop app with either the NSIS setup executable or MSI. Install the MCP separately with `install-mcp.ps1` or the portable release bundle. Future desktop updates require a newer signed release and your explicit confirmation. Windows publisher signing is not configured for this release.
           '@ | Set-Content -LiteralPath .artifacts/release-notes.md -Encoding utf8
       - name: Publish GitHub Release
         shell: pwsh
@@ -60,9 +82,13 @@ jobs:
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $msi = "src-tauri/target/release/bundle/msi/Mod Description Workbench_${version}_x64_en-US.msi"
           $nsis = "src-tauri/target/release/bundle/nsis/Mod Description Workbench_${version}_x64-setup.exe"
-          @($msi, "${msi}.sig", $nsis, "${nsis}.sig", '.artifacts/latest.json') | ForEach-Object {
+          $mcpWindows = ".artifacts/release/Nexus.Description.MCP_${version}_windows-x64.zip"
+          $mcpPortable = ".artifacts/release/Nexus.Description.MCP_${version}_portable.zip"
+          $mcpInstaller = '.artifacts/release/install-mcp.ps1'
+          $mcpChecksums = '.artifacts/release/SHA256SUMS.txt'
+          @($msi, "${msi}.sig", $nsis, "${nsis}.sig", '.artifacts/latest.json', $mcpWindows, $mcpPortable, $mcpInstaller, $mcpChecksums) | ForEach-Object {
             if (-not (Test-Path -LiteralPath $_) -or (Get-Item -LiteralPath $_).Length -eq 0) {
               throw "Required release artifact is missing or empty: $_"
             }
           }
-          gh release create $env:RELEASE_TAG $msi "${msi}.sig" $nsis "${nsis}.sig" .artifacts/latest.json --repo $env:GITHUB_REPOSITORY --title "Mod Description Workbench $env:RELEASE_TAG" --notes-file .artifacts/release-notes.md --verify-tag --latest
+          gh release create $env:RELEASE_TAG $msi "${msi}.sig" $nsis "${nsis}.sig" .artifacts/latest.json $mcpWindows $mcpPortable $mcpInstaller $mcpChecksums --repo $env:GITHUB_REPOSITORY --title "Mod Description Workbench $env:RELEASE_TAG" --notes-file .artifacts/release-notes.md --verify-tag --latest

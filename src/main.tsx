@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { registerDesktopCloseLifecycle } from './platform/desktop'
 import { workspaceActions } from './state/workspaceStore'
+import './features/preview/nexusPreview.css'
 import './styles.css'
 
 void registerDesktopCloseLifecycle({ flush: workspaceActions.flushPersistence, reportFailure: workspaceActions.reportCloseFlushFailure })

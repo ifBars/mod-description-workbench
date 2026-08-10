@@ -20,7 +20,7 @@ if (!existsSync(signature) || statSync(signature).size === 0) throw new Error('N
 
 const manifest = {
   version,
-  notes: 'Initial signed desktop release with native file dialogs, lifecycle handling, and optional updates.',
+  notes: `Mod Description Workbench ${version} adds the Nexus authoring MCP companion and embedded desktop/mobile previews while preserving local-first browser and desktop behavior.`,
   pub_date: new Date().toISOString(),
   platforms: {
     'windows-x86_64': {

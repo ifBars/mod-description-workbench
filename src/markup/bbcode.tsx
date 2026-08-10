@@ -1,59 +1,9 @@
-import type { ReactNode } from 'react'
+/* eslint-disable react-refresh/only-export-components -- this module owns the shared renderer API as well as React nodes */
+import type { MouseEvent, ReactNode } from 'react'
 import { YouTubeEmbed } from './YouTubeEmbed'
-import { routeExternalLink } from '../platform/externalLinks'
+import { parseBBCode, type BbNode, type TagNode } from './bbcodeCore'
 
-interface TagNode {
-  type: 'tag'
-  name: string
-  attribute?: string
-  children: BbNode[]
-}
-
-interface TextNode { type: 'text'; value: string }
-type BbNode = TagNode | TextNode
-
-const SUPPORTED_TAGS = new Set([
-  'b', 'i', 'u', 's', 'color', 'size', 'font', 'left', 'center', 'right', 'quote', 'code',
-  'list', '*', 'spoiler', 'url', 'img', 'aimg', 'youtube', 'video', 'soundcloud', 'twitter', 'heading', 'line',
-])
-
-const tokenPattern = /\[(\/)?([a-z*]+)(?:(?:=|\s+)([^\]]+))?\]/gi
-
-export function parseBBCode(input: string): BbNode[] {
-  const root: TagNode = { type: 'tag', name: 'root', children: [] }
-  const stack = [root]
-  let cursor = 0
-
-  for (const match of input.matchAll(tokenPattern)) {
-    const index = match.index ?? 0
-    if (index > cursor) stack.at(-1)!.children.push({ type: 'text', value: input.slice(cursor, index) })
-    const closing = Boolean(match[1])
-    const name = match[2]!.toLowerCase()
-    const attribute = match[3]?.trim()
-
-    if (!SUPPORTED_TAGS.has(name)) {
-      stack.at(-1)!.children.push({ type: 'text', value: match[0] })
-    } else if (name === 'line') {
-      stack.at(-1)!.children.push({ type: 'tag', name, children: [] })
-    } else if (name === '*' && !closing) {
-      while (stack.length > 1 && stack.at(-1)!.name === '*') stack.pop()
-      const node: TagNode = { type: 'tag', name, children: [] }
-      stack.at(-1)!.children.push(node)
-      stack.push(node)
-    } else if (closing) {
-      const openingIndex = stack.findLastIndex((node) => node.name === name)
-      if (openingIndex > 0) stack.splice(openingIndex)
-      else stack.at(-1)!.children.push({ type: 'text', value: match[0] })
-    } else {
-      const node: TagNode = { type: 'tag', name, ...(attribute ? { attribute } : {}), children: [] }
-      stack.at(-1)!.children.push(node)
-      stack.push(node)
-    }
-    cursor = index + match[0].length
-  }
-  if (cursor < input.length) stack.at(-1)!.children.push({ type: 'text', value: input.slice(cursor) })
-  return root.children
-}
+export { BB_CODE_COMPLETIONS, bbcodeDiagnostics, parseBBCode } from './bbcodeCore'
 
 function textContent(nodes: BbNode[]): string {
   return nodes.map((node) => node.type === 'text' ? node.value : textContent(node.children)).join('')
@@ -166,9 +116,9 @@ export function bbcodeToVisualHTML(input: string, assetUrls: Record<string, stri
   return nexusRootNodes(parseBBCode(input)).map((node) => richHtmlNode(node, assetUrls, true)).join('')
 }
 
-function renderNode(node: BbNode, key: string, assetUrls: Record<string, string>): ReactNode {
+function renderNode(node: BbNode, key: string, assetUrls: Record<string, string>, onExternalLink?: (event: MouseEvent<HTMLAnchorElement>) => void): ReactNode {
   if (node.type === 'text') return node.value.split('\n').flatMap((part, index, lines) => index < lines.length - 1 ? [part, <br key={`${key}-br-${index}`} />] : [part])
-  const children = node.children.map((child, index) => renderNode(child, `${key}-${index}`, assetUrls))
+  const children = node.children.map((child, index) => renderNode(child, `${key}-${index}`, assetUrls, onExternalLink))
   switch (node.name) {
     case 'b': return <strong key={key}>{children}</strong>
     case 'i': return <em key={key}>{children}</em>
@@ -184,12 +134,12 @@ function renderNode(node: BbNode, key: string, assetUrls: Record<string, string>
     case 'spoiler': return <details className="bbc-spoiler nexus-public-spoiler" key={key}><summary><span>Spoiler:</span>{' \u00a0'}<span className="bbc-spoiler-show">Show</span></summary><div className="bbc-spoiler-content">{children}</div></details>
     case 'list': {
       const Tag = node.attribute === '1' ? 'ol' : 'ul'
-      return <Tag key={key}>{node.children.filter((child): child is TagNode => child.type === 'tag' && child.name === '*').map((child, index) => renderNode(child, `${key}-item-${index}`, assetUrls))}</Tag>
+      return <Tag key={key}>{node.children.filter((child): child is TagNode => child.type === 'tag' && child.name === '*').map((child, index) => renderNode(child, `${key}-item-${index}`, assetUrls, onExternalLink))}</Tag>
     }
-    case '*': return <li key={key}>{withoutBoundaryNewlines(node.children).map((child, index) => renderNode(child, `${key}-${index}`, assetUrls))}</li>
+    case '*': return <li key={key}>{withoutBoundaryNewlines(node.children).map((child, index) => renderNode(child, `${key}-${index}`, assetUrls, onExternalLink))}</li>
     case 'url': {
       const href = safeUrl(node.attribute ?? textContent(node.children))
-      return href ? <a key={key} href={href} target="_blank" rel="noreferrer" onClick={routeExternalLink}>{children}</a> : <span key={key}>{children}</span>
+      return href ? <a key={key} href={href} target="_blank" rel="noreferrer" onClick={onExternalLink}>{children}</a> : <span key={key}>{children}</span>
     }
     case 'img': case 'aimg': {
       const src = safeUrl(textContent(node.children), true, assetUrls)
@@ -202,34 +152,12 @@ function renderNode(node: BbNode, key: string, assetUrls: Record<string, string>
       return id ? <YouTubeEmbed id={id} key={key} /> : null
     }
     case 'video': case 'soundcloud': return <div className="embed-placeholder" key={key}>{node.name} embed · {textContent(node.children)}</div>
-    case 'twitter': return <a key={key} href={`https://twitter.com/${encodeURIComponent(textContent(node.children).replace(/^@/, ''))}`} target="_blank" rel="noreferrer" onClick={routeExternalLink}>@{textContent(node.children).replace(/^@/, '')}</a>
+    case 'twitter': return <a key={key} href={`https://twitter.com/${encodeURIComponent(textContent(node.children).replace(/^@/, ''))}`} target="_blank" rel="noreferrer" onClick={onExternalLink}>@{textContent(node.children).replace(/^@/, '')}</a>
     case 'line': return <hr key={key} />
     default: return <span key={key}>{children}</span>
   }
 }
 
-export function renderBBCode(input: string, assetUrls: Record<string, string> = {}) {
-  return nexusRootNodes(parseBBCode(input)).map((node, index) => renderNode(node, String(index), assetUrls))
+export function renderBBCode(input: string, assetUrls: Record<string, string> = {}, onExternalLink?: (event: MouseEvent<HTMLAnchorElement>) => void) {
+  return nexusRootNodes(parseBBCode(input)).map((node, index) => renderNode(node, String(index), assetUrls, onExternalLink))
 }
-
-export function bbcodeDiagnostics(input: string) {
-  const issues: string[] = []
-  const stack: string[] = []
-  for (const match of input.matchAll(tokenPattern)) {
-    const closing = Boolean(match[1]); const name = match[2]!.toLowerCase()
-    if (!SUPPORTED_TAGS.has(name)) issues.push(`Unknown tag [${name}]`)
-    else if (name === 'line' || name === '*') continue
-    else if (!closing) stack.push(name)
-    else if (stack.at(-1) === name) stack.pop()
-    else issues.push(`Unexpected closing tag [/${name}]`)
-  }
-  stack.reverse().forEach((tag) => issues.push(`Missing closing tag [/${tag}]`))
-  return [...new Set(issues)]
-}
-
-export const BB_CODE_COMPLETIONS = [...SUPPORTED_TAGS].filter((tag) => tag !== '*').map((tag) => ({
-  label: `[${tag}]`,
-  type: 'keyword',
-  apply: tag === 'line' ? '[line]' : `[${tag}]\n\n[/${tag}]`,
-  detail: 'Nexus BBCode',
-}))

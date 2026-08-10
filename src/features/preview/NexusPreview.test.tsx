@@ -27,6 +27,11 @@ describe('NexusPreview', () => {
     expect(container.querySelector('.nexus-surface')).toHaveStyle({ '--preview-zoom': '0.85' })
   })
 
+  it('renders through the shared Nexus description surface', () => {
+    const { container } = render(<NexusPreview content="[b]Shared renderer[/b]" mode="bbcode" device="desktop" zoom={100} onDeviceChange={() => undefined} />)
+    expect(container.querySelector('.nexus-surface.desktop .nexus-description strong')).toHaveTextContent('Shared renderer')
+  })
+
   it('warns when a local-only image cannot be exported to Nexus', () => {
     render(<NexusPreview content="![Local](asset://asset-1)" mode="markdown" device="desktop" zoom={100} assetUrls={{ 'asset-1': 'blob:https://local.test/asset' }} onDeviceChange={() => undefined} />)
     expect(screen.getByText('1 issue')).toBeInTheDocument()
