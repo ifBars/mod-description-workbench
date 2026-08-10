@@ -41,6 +41,7 @@ The app autosaves after you stop typing. Each document has its own recovery poin
 - Reusable templates and components
 - Light, dark, system, and custom themes
 - Compatibility warnings for unsupported or lossy content
+- A local MCP server for model-authored, validated Nexus BBCode
 
 ## More screenshots
 
@@ -122,6 +123,18 @@ The preview renderer uses manually captured Nexus editor and public-page fixture
 Nexus can change its editor or public styles at any time. Treat the local preview as a close compatibility check, not a replacement for reviewing the final description on Nexus.
 
 The app does not log in to Nexus, scrape pages, save descriptions, or publish mods.
+
+## Model Context Protocol
+
+The optional local MCP companion gives compatible model clients a Nexus-native authoring prompt, a structured description builder, Markdown-to-BBCode conversion, and BBCode validation. In clients that support MCP Apps, build and conversion results render the same interactive desktop/mobile Nexus preview directly in the conversation. It reuses the workbench renderer and compatibility boundary, and never connects to Nexus Mods or publishes anything.
+
+Windows users can install the self-contained MCP globally in Codex without cloning this repository or installing a JavaScript runtime:
+
+```powershell
+irm https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex
+```
+
+See [MCP setup and tools](mcp/README.md) for client configuration and the recommended authoring workflow.
 
 ## Run locally
 

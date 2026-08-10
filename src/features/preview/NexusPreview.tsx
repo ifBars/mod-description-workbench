@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { Monitor, Smartphone } from 'lucide-react'
 import type { AuthoringMode, PreviewDevice } from '../../domain/types'
-import { renderBBCode, bbcodeDiagnostics } from '../../markup/bbcode'
+import { bbcodeDiagnostics } from '../../markup/bbcode'
 import { normalizeForNexus } from '../../markup/convert'
+import { routeExternalLink } from '../../platform/externalLinks'
+import { NexusDescriptionSurface } from './NexusDescriptionSurface'
 
 interface NexusPreviewProps {
   content: string
@@ -58,11 +60,7 @@ export function NexusPreview({ content, mode, device, zoom, fluidDesktop = false
         </div>
       </header>
       <div className="preview-stage" ref={stageRef}>
-        <article className={`nexus-surface ${device} ${usesFluidDesktop ? 'fluid-desktop' : ''}`} style={{ '--preview-zoom': zoom / 100, '--preview-fit': fitScale, '--preview-scale': previewScale } as React.CSSProperties}>
-          <div className="nexus-description">
-            {renderBBCode(nexusSource, assetUrls)}
-          </div>
-        </article>
+        <NexusDescriptionSurface bbcode={nexusSource} device={device} scale={previewScale} fluidDesktop={usesFluidDesktop} assetUrls={assetUrls} onExternalLink={routeExternalLink} />
       </div>
     </section>
   )
