@@ -91,8 +91,14 @@ describe('Nexus description MCP server', () => {
     ])
 
     expect(resource.contents[0]).toMatchObject({ mimeType: 'text/markdown' })
-    expect('text' in resource.contents[0]! ? resource.contents[0].text : '').toContain('Never invent versions')
+    const guide = 'text' in resource.contents[0]! ? resource.contents[0].text : ''
+    expect(guide).toContain('Never invent versions')
+    expect(guide).toContain('## Choose the MCP operation')
+    expect(guide).toContain('## Write for the player deciding whether to install')
     expect(prompt.messages[0]?.content).toMatchObject({ type: 'text' })
+    expect(prompt.messages[0]?.content).toMatchObject({
+      text: expect.stringContaining('## Final quality gate'),
+    })
   })
 
   it('rejects invalid input without terminating the server', async () => {

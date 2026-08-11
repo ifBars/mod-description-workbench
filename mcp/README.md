@@ -20,7 +20,7 @@ The tool result still includes plain text and structured `bbcode`/`issues` field
 On Windows, run this from PowerShell:
 
 ```powershell
-irm https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex
+irm -UseBasicParsing https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex
 ```
 
 The installer downloads the latest self-contained Windows MCP release to your local app-data directory and registers it globally with Codex as `nexus-description-workbench`. It does not install the workbench source, Bun, Node.js, or any application backend. Restart Codex after installation, then use `/mcp` to confirm the server is connected.

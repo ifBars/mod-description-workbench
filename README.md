@@ -131,7 +131,7 @@ The optional local MCP companion gives compatible model clients a Nexus-native a
 Windows users can install the self-contained MCP globally in Codex without cloning this repository or installing a JavaScript runtime:
 
 ```powershell
-irm https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex
+irm -UseBasicParsing https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex
 ```
 
 See [MCP setup and tools](mcp/README.md) for client configuration and the recommended authoring workflow.

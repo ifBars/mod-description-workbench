@@ -25,6 +25,32 @@ Two repetitions of six scenarios produced 12 runs per design/reasoning group, 48
 
 Every group selected the correct operation, supplied valid arguments, preserved exact converter/build output, reported validation findings, retained supplied facts without the tested inventions, and generated compatibility-clean editorial BBCode. The strict misses were all the same efficiency behavior: after the prompt said “build and verify,” the model called the validator after build even though build already returned an empty `issues` array. No content result failed. The explicit server instructions and tool descriptions now say that build and convert already validate their output.
 
+## Real Schedule I mod authoring benchmark
+
+Measured on 2026-08-11 with `gpt-5.6-luna` at medium reasoning. This paired benchmark uses verified fact packets derived from seven real local projects whose published Nexus descriptions the author identified as preferred references: Drug Expansion, Forklift & Pallets, S1DedicatedServers, S1MAPI, S1API, BiggerLobbies, and HeatedDryingRacks.
+
+The baseline and guided variants receive identical facts. Only the guided variant receives the authoring guide read from `nexus://compatibility/authoring-guide` over the real stdio MCP protocol. The deterministic 100-point rubric measures factual retention, absence of unsupported claims, section fit to the author's reference style, early decision information, Nexus BBCode compatibility, and restraint.
+
+| Variant | Valid runs | Score at least 85 | Mean score | Mean latency | Mean input tokens | Mean output tokens |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 7/7 | 5/7 | 90.9 | 19.2 s | 17,285 | 372 |
+| MCP guide | 7/7 | 7/7 | 96.7 | 19.9 s | 18,774 | 406 |
+
+The guide improved Drug Expansion by 12 points, Forklift & Pallets by 10, and S1API by 19. Dedicated servers, S1MAPI, BiggerLobbies, and HeatedDryingRacks matched already-strong baselines. This is a bounded seven-case, one-repetition result, not a universal quality claim.
+
+### Leakage controls
+
+The generated model never receives a Nexus URL or ID, published description text, local repository path, reference prose, or scoring profile. Each process starts in its own empty scratch directory with user configuration ignored. Any shell, file, web, MCP, or dynamic-tool action invalidates the run. Each case also withholds distinctive published-description facts as leakage canaries; reproducing one invalidates the run. The measured matrix had zero contaminated runs and zero canary matches.
+
+The first run also exposed a compatibility-validator gap: unsupported tags containing digits, such as `[h1]` and `[h2]`, were skipped by the BBCode tokenizer. The tokenizer now recognizes those tag names so the validator correctly reports them as unknown instead of granting a false compatibility pass.
+
+Run the full paired matrix or one focused case with:
+
+```powershell
+bun run mcp:benchmark:real-mods --repetitions=1 --concurrency=4
+bun run mcp:benchmark:real-mods --case=heated-drying-racks --repetitions=1 --concurrency=2
+```
+
 Latency and token counts are observational, not a speed ranking. Codex loaded the same large local skill context for both variants, and individual cloud runs varied widely. The paired task result is the defensible comparison.
 
 OpenAI's current guidance recommends lean tool sets, representative evals, and using higher reasoning only when measured task quality improves. Luna supports MCP and both medium and high reasoning. In this bounded matrix high reasoning did not improve task or presentation quality over medium, so medium is the default for this workflow; high remains an opt-in for harder fact synthesis. Sources: [latest model guide](https://developers.openai.com/api/docs/guides/latest-model) and [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna).

@@ -27,6 +27,7 @@
     "mcp:package": "bun run mcp/package.ts",
     "mcp:smoke": "bun run mcp/smoke.ts",
     "mcp:benchmark": "bun run mcp/benchmark/run.ts",
+    "mcp:benchmark:real-mods": "bun run mcp/benchmark/realMods.ts",
     "version:check": "bun scripts/check-version.mjs",
     "release:tag-check": "bun scripts/check-release-tag.mjs",
     "updater:manifest": "bun scripts/create-updater-manifest.mjs"

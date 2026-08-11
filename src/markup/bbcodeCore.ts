@@ -14,7 +14,7 @@ export const SUPPORTED_BB_CODE_TAGS = [
 ] as const
 
 const supportedTags = new Set<string>(SUPPORTED_BB_CODE_TAGS)
-const tokenPattern = /\[(\/)?([a-z*]+)(?:(?:=|\s+)([^\]]+))?\]/gi
+const tokenPattern = /\[(\/)?([a-z*][a-z0-9]*)(?:(?:=|\s+)([^\]]+))?\]/gi
 
 export function parseBBCode(input: string): BbNode[] {
   const root: TagNode = { type: 'tag', name: 'root', children: [] }

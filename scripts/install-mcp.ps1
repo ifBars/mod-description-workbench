@@ -30,10 +30,15 @@ if ($AssetPath) {
 } else {
   $asset = $release.assets | Where-Object name -eq $assetName | Select-Object -First 1
   if (-not $asset) { throw "Release v$Version does not contain $assetName." }
-  Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archivePath -Headers @{ 'User-Agent' = 'Nexus-Description-MCP-Installer' }
+  Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $archivePath -Headers @{ 'User-Agent' = 'Nexus-Description-MCP-Installer' }
   $checksumAsset = $release.assets | Where-Object name -eq 'SHA256SUMS.txt' | Select-Object -First 1
   if (-not $checksumAsset) { throw "Release v$Version does not contain SHA256SUMS.txt." }
-  $checksumText = (Invoke-WebRequest -Uri $checksumAsset.browser_download_url -Headers @{ 'User-Agent' = 'Nexus-Description-MCP-Installer' }).Content
+  $checksumContent = (Invoke-WebRequest -UseBasicParsing -Uri $checksumAsset.browser_download_url -Headers @{ 'User-Agent' = 'Nexus-Description-MCP-Installer' }).Content
+  $checksumText = if ($checksumContent -is [byte[]]) {
+    [System.Text.Encoding]::UTF8.GetString($checksumContent)
+  } else {
+    [string]$checksumContent
+  }
 }
 
 if ($checksumText) {

@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { buildNexusDescription, convertToNexusBBCode, validateNexusBBCode } from './nexusDescription'
+import {
+  buildNexusDescription,
+  convertToNexusBBCode,
+  NEXUS_AUTHORING_GUIDE,
+  validateNexusBBCode,
+} from './nexusDescription'
 
 describe('Nexus description MCP helpers', () => {
+  it('guides agents through operation selection and evidence-bounded player copy', () => {
+    expect(NEXUS_AUTHORING_GUIDE).toContain('## Choose the MCP operation')
+    expect(NEXUS_AUTHORING_GUIDE).toContain('Build and convert already return compatibility issues')
+    expect(NEXUS_AUTHORING_GUIDE).toContain('Put decision-changing facts near the top')
+    expect(NEXUS_AUTHORING_GUIDE).toContain('Never turn “not reported” into “compatible with everything.”')
+    expect(NEXUS_AUTHORING_GUIDE).toContain('## Final quality gate')
+  })
+
   it('builds clean BBCode from structured facts', () => {
     const bbcode = buildNexusDescription({
       name: 'Better Dealers',
@@ -54,5 +67,9 @@ describe('Nexus description MCP helpers', () => {
       'Local asset:// images need public URLs before Nexus export',
       'Raw scriptable HTML is not valid Nexus BBCode output',
     ])
+  })
+
+  it('reports unsupported tag names that contain digits', () => {
+    expect(validateNexusBBCode('[h1]Not a confirmed Nexus heading[/h1]')).toEqual(['Unknown tag [h1]'])
   })
 })

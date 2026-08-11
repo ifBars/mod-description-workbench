@@ -63,7 +63,7 @@ jobs:
           ## MCP companion
           - Build or convert Nexus Mods descriptions and inspect the same desktop/mobile preview directly inside MCP Apps-compatible Codex and Claude clients.
           - Windows users can install the self-contained MCP without cloning the repository or installing Bun/Node. A small portable Node bundle is included for other platforms.
-          - Install for Codex from PowerShell: `irm https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex`
+          - Install for Codex from PowerShell: `irm -UseBasicParsing https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex`
 
           ## Web compatibility
           - The GitHub Pages app remains browser-first and local-first; desktop update code does not run there.

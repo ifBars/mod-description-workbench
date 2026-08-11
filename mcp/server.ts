@@ -23,7 +23,7 @@ const server = new McpServer({
   name: 'mod-description-workbench',
   version: packageJson.version,
 }, {
-  instructions: 'Local, read-only Nexus BBCode authoring utilities. Use build for structured mod facts, convert for existing Markdown or BBCode, and validate when the user asks to check supplied BBCode. Build and convert already return validation issues; do not call validate again unless the user explicitly requests a separate check.',
+  instructions: 'Local, read-only Nexus BBCode authoring utilities. Read nexus://compatibility/authoring-guide before custom authoring, or use the write_nexus_mod_description prompt to receive that guidance with verified facts. Use build for structured mod facts, convert for existing Markdown or BBCode, and validate when the user asks to check supplied BBCode. Build and convert already return validation issues; do not call validate again unless the user explicitly requests a separate check.',
 })
 
 const localReadOnlyTool = {
@@ -68,8 +68,8 @@ server.registerResource(
   'nexus-authoring-guide',
   'nexus://compatibility/authoring-guide',
   {
-    title: 'Native Nexus Mods description authoring guide',
-    description: 'The workbench compatibility rules and evidence-bounded writing guidance.',
+    title: 'Nexus MCP authoring and operation guide',
+    description: 'How to choose the MCP operation, assemble verified facts, write player-focused copy, and stay within the workbench compatibility rules.',
     mimeType: 'text/markdown',
   },
   async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'text/markdown', text: NEXUS_AUTHORING_GUIDE }] }),
