@@ -23,7 +23,7 @@ On Windows, run this from PowerShell:
 irm -UseBasicParsing https://github.com/ifBars/mod-description-workbench/releases/latest/download/install-mcp.ps1 | iex
 ```
 
-The installer downloads the latest self-contained Windows MCP release to your local app-data directory and registers it globally with Codex as `nexus-description-workbench`. It does not install the workbench source, Bun, Node.js, or any application backend. Restart Codex after installation, then use `/mcp` to confirm the server is connected.
+The installer downloads the latest self-contained Windows MCP release to your local app-data directory and registers it globally with Codex as `nexus-description-workbench`. The executable is a Node.js Single Executable Application with its runtime and preview resource embedded; it does not install the workbench source, Bun, Node.js, or any application backend. Restart Codex after installation, then use `/mcp` to confirm the server is connected.
 
 Codex Desktop, the CLI, and the IDE extension share that global MCP configuration. The installer prints the executable path; the same executable can be selected as a local STDIO server with no arguments in other MCP Apps clients such as Claude Desktop.
 
@@ -65,6 +65,18 @@ Point the MCP client's `command` to `node` and its `args` to the absolute `dist-
 ```powershell
 bun run mcp:smoke
 ```
+
+## Windows release packaging
+
+`bun run mcp:package` builds the self-contained Windows executable with Node.js 24.15.0 SEA, writes the existing portable Node bundle, and keeps a Bun-compiled executable under `.artifacts/release/staging/` for CI comparison only. The packaged SEA reads the interactive preview directly from its embedded assets and does not extract runtime files.
+
+The packaging command must run on Windows with exactly Node.js 24.15.0 available on `PATH`. Node and `postject` are pinned because SEA preparation blobs are runtime-specific. The Windows CI and release workflows smoke-test the SEA, portable bundle, installer output, and temporary Bun fallback, then enforce a relative private-working-set improvement with:
+
+```powershell
+bun run mcp:benchmark:runtime
+```
+
+The release archive includes the repository license and Node.js's complete upstream license notices. The final MCP executable is currently unsigned, matching the rest of the documented Windows publisher-signing status.
 
 ## Embedded preview development
 

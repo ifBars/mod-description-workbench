@@ -13,7 +13,7 @@ export async function buildMcpServer() {
   await buildMcpUi()
 
   const build = await Bun.build({
-    entrypoints: [resolve(mcpRoot, 'server.ts')],
+    entrypoints: [resolve(mcpRoot, 'portable.ts')],
     target: 'node',
     outdir: outputRoot,
     naming: 'server.js',

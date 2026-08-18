@@ -2,9 +2,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server'
-import { readFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import packageJson from '../package.json'
 import {
@@ -15,9 +12,8 @@ import {
 } from './nexusDescription'
 import { NEXUS_PREVIEW_RESOURCE_URI } from './ui/constants'
 
-const serverDirectory = dirname(fileURLToPath(import.meta.url))
-const previewHtmlPath = process.env.NEXUS_DESCRIPTION_MCP_PREVIEW_PATH
-  ?? resolve(serverDirectory, 'ui', 'dist', 'nexus-preview.html')
+type PreviewLoader = () => Promise<string> | string
+let loadPreviewHtml: PreviewLoader
 
 const server = new McpServer({
   name: 'mod-description-workbench',
@@ -52,7 +48,7 @@ server.registerResource(
     contents: [{
       uri: uri.href,
       mimeType: RESOURCE_MIME_TYPE,
-      text: await readFile(previewHtmlPath, 'utf8'),
+      text: await loadPreviewHtml(),
       _meta: {
         ui: {
           prefersBorder: true,
@@ -171,5 +167,8 @@ server.registerTool(
   },
 )
 
-const transport = new StdioServerTransport()
-await server.connect(transport)
+export async function startMcpServer(previewLoader: PreviewLoader) {
+  loadPreviewHtml = previewLoader
+  const transport = new StdioServerTransport()
+  await server.connect(transport)
+}
