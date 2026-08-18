@@ -36,6 +36,9 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: mcp/node-sea-version.txt
       - run: bun install --frozen-lockfile
       - run: bun run version:check
       - run: bun run lint
@@ -46,6 +49,12 @@ jobs:
       - name: Smoke standalone MCP
         shell: pwsh
         run: bun run mcp:smoke -- --standalone ".artifacts/release/staging/nexus-description-mcp.exe"
+      - name: Smoke Bun fallback MCP
+        shell: pwsh
+        run: bun run mcp:smoke -- --standalone ".artifacts/release/staging/nexus-description-mcp-bun-fallback.exe"
+      - name: Check standalone MCP memory
+        shell: pwsh
+        run: bun run mcp:benchmark:runtime -- -Iterations 3
       - name: Smoke portable MCP
         shell: pwsh
         run: |
